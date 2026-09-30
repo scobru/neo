@@ -63,7 +63,9 @@ python3 -m http.server 8080 && open http://localhost:8080
 Dalla schermata di scelta modello, **+ Modello personalizzato**:
 
 - **MLC (WebGPU):** URL dei pesi + `.wasm` (oppure `@modello-del-catalogo` per riusarne uno), o una cartella MLC dal disco.
-- **GGUF (CPU, sperimentale):** URL di un file `.gguf`, eseguito con [wllama](https://github.com/ngxson/wllama). Nella lista ci sono già i modelli **Minerva** (Sapienza NLP, italiano/inglese) 350M, 1B e 3B. Sono modelli *base*: non seguono bene le istruzioni senza fine-tuning.
+- **GGUF (CPU, sperimentale):** URL di un file `.gguf`, eseguito con [wllama](https://github.com/ngxson/wllama). Nella lista ci sono già i modelli **Minerva** (Sapienza NLP, italiano/inglese) 350M, 1B e 3B. Sono modelli *base*: non seguono bene le istruzioni senza fine-tuning. Ci sono anche **MiniCPM5-1B e 2B** (OpenBMB, GGUF ufficiali, modelli chat in inglese/cinese: l'italiano è debole).
+- **MLC community:** una build WebGPU di MiniCPM5-2B di un autore terzo (non OpenBMB) è in lista come "community". Il suo `.wasm` gira nel tuo browser: usala solo se ti fidi.
+- **Senza WebGPU** (accelerazione hardware spenta, driver, VM): i modelli WebLLM non partono, NEO lo segnala e preseleziona un modello GGUF su CPU.
 
 ## Tech Stack
 

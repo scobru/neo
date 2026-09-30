@@ -837,6 +837,12 @@ html.dark .msg-body pre {
   <input id="ag-name" maxlength="40">
   <label for="ag-prompt">System prompt</label>
   <textarea id="ag-prompt" placeholder="Es. Sei un traduttore. Traduci tutto in inglese."></textarea>
+  <div style="display:flex;gap:8px">
+    <div style="flex:1"><label for="ag-temp">Temperatura</label><input id="ag-temp" type="number" step="0.05" min="0" max="2" placeholder="auto"></div>
+    <div style="flex:1"><label for="ag-topp">Top-p</label><input id="ag-topp" type="number" step="0.05" min="0" max="1" placeholder="auto"></div>
+    <div style="flex:1"><label for="ag-max">Max token</label><input id="ag-max" type="number" step="32" min="16" placeholder="512"></div>
+  </div>
+  <div style="font-size:11px;color:var(--ash);margin-top:6px">Vuoto = valori del modello (auto). Le operazioni ⚡ usano sempre parametri fissi.</div>
   <div class="ag-actions">
     <button class="primary" onclick="saveAgent()">Salva</button>
     <button onclick="this.closest('dialog').close()">Chiudi</button>
@@ -983,10 +989,7 @@ window.toggleTheme = () => {
   }
 })();
 
-// WebGPU check
-if (!navigator.gpu) {
-  document.getElementById('gpu-warning').classList.add('visible');
-}
+// No blocking overlay when WebGPU is missing: GGUF (CPU) models still work; the model picker explains it.
 
 // ── State ──────────────────────────────────
 let engine = null;
@@ -1087,6 +1090,9 @@ window.editAgent = function() {
   const a = getAgent(curAgentId);
   document.getElementById('ag-name').value = a.name;
   document.getElementById('ag-prompt').value = a.prompt;
+  document.getElementById('ag-temp').value = a.temperature ?? '';
+  document.getElementById('ag-topp').value = a.top_p ?? '';
+  document.getElementById('ag-max').value = a.max_tokens ?? '';
   document.getElementById('ag-dialog').showModal();
 };
 
@@ -1102,6 +1108,8 @@ window.saveAgent = function() {
   const a = getAgent(curAgentId);
   a.name = document.getElementById('ag-name').value.trim() || 'Agente';
   a.prompt = document.getElementById('ag-prompt').value;
+  const num = id => { const v = document.getElementById(id).value.trim(); return v === '' || isNaN(+v) ? undefined : +v; };
+  a.temperature = num('ag-temp'); a.top_p = num('ag-topp'); a.max_tokens = num('ag-max');
   saveAgents();
   renderAgents();
   document.getElementById('ag-dialog').close();
@@ -1297,7 +1305,7 @@ const DESIRED = [
 let customModels = (() => {
   try { return JSON.parse(localStorage.getItem('neo-custom')) || []; } catch { return []; }
 })();
-const allModels = () => [...webllm.prebuiltAppConfig.model_list, ...customModels.filter(m => !m.gguf)];
+const allModels = () => [...webllm.prebuiltAppConfig.model_list, ...COMMUNITY_MLC, ...customModels.filter(m => !m.gguf)];
 
 // In-page replacements for confirm/alert/prompt: embedded browsers and some settings suppress the native ones,
 // which made "Elimina" silently do nothing.
@@ -1412,14 +1420,31 @@ async function purgeLocal(m) { // delete the copied files of a local model
 
 // ── GGUF models (Minerva…) run with wllama = llama.cpp compiled to WebAssembly: a 2nd backend next to WebLLM ──
 const HF = (repo, file) => `https://huggingface.co/${repo}/resolve/main/${file}`;
-const MINERVA = [ // base (non-instruct) models by Sapienza NLP, GGUF quants by mradermacher (not gated)
+const GGUF_CATALOG = [
+  // Minerva: Sapienza NLP, native Italian/English *base* models; GGUF quants by mradermacher (not gated)
   { it: true, model_id: 'Minerva-350M-base-Q8_0', size: 374, gguf: HF('mradermacher/Minerva-350M-base-v1.0-GGUF', 'Minerva-350M-base-v1.0.Q8_0.gguf') },
   { it: true, model_id: 'Minerva-1B-base-Q4_K_M', size: 617, gguf: HF('mradermacher/Minerva-1B-base-v1.0-GGUF', 'Minerva-1B-base-v1.0.Q4_K_M.gguf') },
   { it: true, model_id: 'Minerva-3B-base-Q4_K_M', size: 1752, gguf: HF('mradermacher/Minerva-3B-base-v1.0-GGUF', 'Minerva-3B-base-v1.0.Q4_K_M.gguf') },
+  // MiniCPM5 (OpenBMB, official GGUF): chat models, English/Chinese. ChatML format, thinking switched off.
+  { note: 'EN/中文, italiano debole', model_id: 'MiniCPM5-1B-Q4_K_M', size: 688, format: 'chatml', bos: '<s>', noThink: true, sampling: { temperature: 0.7, top_p: 0.95 }, gguf: HF('openbmb/MiniCPM5-1B-GGUF', 'MiniCPM5-1B-Q4_K_M.gguf') },
+  { note: 'EN/中文, italiano debole', model_id: 'MiniCPM5-2B-Q4_K_M', size: 1561, format: 'chatml', bos: '<s>', noThink: true, sampling: { temperature: 0.7, top_p: 0.95 }, gguf: HF('openbmb/MiniCPM5-2B-GGUF', 'MiniCPM5-2B-Q4_K_M.gguf') },
 ];
+// WebGPU (MLC) build of MiniCPM5-2B by a community author, NOT by OpenBMB (https://huggingface.co/ozhyhinas/MiniCPM5-2B-q4f16_1-MLC).
+// Its .wasm runs inside your browser tab: only use it if you trust the author.
+const COMMUNITY_MLC = [{
+  community: true, noThink: true, sampling: { temperature: 0.7, top_p: 0.95 }, // OpenBMB's recommended no-think sampling
+  model_id: 'MiniCPM5-2B-q4f16_1-MLC',
+  model: 'https://huggingface.co/ozhyhinas/MiniCPM5-2B-q4f16_1-MLC',
+  model_lib: 'https://huggingface.co/ozhyhinas/MiniCPM5-2B-q4f16_1-MLC/resolve/main/libs/MiniCPM5-2B-q4f16_1-MLC-webgpu.wasm',
+  vram_required_MB: 2000, // estimate (weights are 1.42 GB)
+  required_features: ['shader-f16'],
+  overrides: { context_window_size: 4096 },
+}];
 // inline SVG: flag emoji don't render on Windows (they show up as the letters "IT")
 const IT_FLAG = '<svg viewBox="0 0 3 2" width="18" height="12" style="vertical-align:-1px;margin-left:6px;border-radius:2px" role="img" aria-label="Italiano"><title>Modello nativo italiano</title><rect width="1" height="2" fill="#009246"/><rect x="1" width="1" height="2" fill="#fff"/><rect x="2" width="1" height="2" fill="#ce2b37"/><rect width="3" height="2" fill="none" stroke="rgba(0,0,0,.15)" stroke-width=".08"/></svg>';
-const ggufModels = () => [...MINERVA, ...customModels.filter(m => m.gguf)];
+const ggufModels = () => [...GGUF_CATALOG, ...customModels.filter(m => m.gguf)];
+const curRec = () => [...allModels(), ...ggufModels()].find(m => m.model_id === currentModelId);
+const noThink = () => !!curRec()?.noThink;
 
 // Base models have no chat template: plain "### Utente / ### Assistente" format, cut at the next "###".
 function basePrompt(msgs) {
@@ -1427,6 +1452,12 @@ function basePrompt(msgs) {
   const turns = msgs.filter(m => m.role !== 'system')
     .map(m => `### ${m.role === 'user' ? 'Utente' : 'Assistente'}:\n${m.content}\n`).join('\n');
   return (sys ? sys + '\n\n' : '') + turns + '\n### Assistente:\n';
+}
+
+// ChatML (MiniCPM5 & co.). bos: MiniCPM needs a leading <s>; without it the output degenerates into "***" lines. noThink pre-fills an empty <think> block, as the model's own template does for enable_thinking=false.
+function chatmlPrompt(msgs, noThink, bos = '') {
+  return bos + msgs.map(m => `<|im_start|>${m.role}\n${m.content}<|im_end|>\n`).join('')
+    + '<|im_start|>assistant\n' + (noThink ? '<think>\n\n</think>\n\n' : '');
 }
 
 // Returns an object shaped like the WebLLM engine (chat.completions.create + interruptGenerate)
@@ -1439,6 +1470,9 @@ async function loadGguf(rec, onProgress) {
     n_ctx: rec.n_ctx || 2048, n_gpu_layers: 0,
     progressCallback: ({ loaded, total }) => onProgress(loaded / total),
   });
+  const chatml = rec.format === 'chatml';
+  const stops = chatml ? ['<|im_end|>', '</s>'] : ['###'];
+  const hold = Math.max(...stops.map(x => x.length)) - 1; // a stop marker may be split across chunks
   let ctrl;
   return {
     interruptGenerate: () => ctrl?.abort(),
@@ -1446,8 +1480,8 @@ async function loadGguf(rec, onProgress) {
     chat: { completions: { async create(req) {
       ctrl = new AbortController();
       const stream = await w.createCompletion({
-        prompt: basePrompt(req.messages), max_tokens: req.max_tokens, temperature: req.temperature,
-        top_p: req.top_p, stop: ['###'], stream: true, abortSignal: ctrl.signal,
+        prompt: chatml ? chatmlPrompt(req.messages, rec.noThink, rec.bos) : basePrompt(req.messages), max_tokens: req.max_tokens,
+        temperature: req.temperature, top_p: req.top_p, stop: stops, stream: true, abortSignal: ctrl.signal,
       });
       return (async function* () {
         let buf = '', sent = 0;
@@ -1455,8 +1489,9 @@ async function loadGguf(rec, onProgress) {
         try {
           for await (const c of stream) {
             buf += c.choices[0]?.text ?? '';
-            const i = buf.indexOf('###');
-            const end = i >= 0 ? i : Math.max(sent, buf.length - 2); // hold back 2 chars: "###" may be split across chunks
+            let i = -1;
+            for (const x of stops) { const j = buf.indexOf(x); if (j >= 0 && (i < 0 || j < i)) i = j; }
+            const end = i >= 0 ? i : Math.max(sent, buf.length - hold);
             if (end > sent) { yield out(buf.slice(sent, end)); sent = end; }
             if (i >= 0) { ctrl.abort(); return; }
           }
@@ -1467,16 +1502,17 @@ async function loadGguf(rec, onProgress) {
   };
 }
 
-async function detectF16() {
+// navigator.gpu can exist while requestAdapter() still returns null (hardware acceleration off, blocklisted driver, VM…)
+async function detectGpu() {
   try {
-    if (!navigator.gpu) return false;
+    if (!navigator.gpu) return { ok: false, f16: false };
     const a = await navigator.gpu.requestAdapter();
-    return a ? a.features.has('shader-f16') : false;
-  } catch { return false; }
+    return { ok: !!a, f16: !!a?.features.has('shader-f16') };
+  } catch { return { ok: false, f16: false }; }
 }
 
 async function initModelPicker() {
-  const f16 = await detectF16();
+  const { ok: gpuOk, f16 } = await detectGpu();
   const precision = f16 ? 'q4f16' : 'q4f32';
   const all = webllm.prebuiltAppConfig.model_list;
 
@@ -1514,6 +1550,7 @@ async function initModelPicker() {
   const rank = m => { const i = PREF.findIndex(k => m.model_id.toLowerCase().includes(k)); return i < 0 ? 99 : i; };
   matched.sort((a, b) => rank(a) - rank(b) || (a.vram_required_MB || 500) - (b.vram_required_MB || 500));
   matched.unshift(...customModels.filter(m => !m.gguf)); // yours first → preselected
+  matched.push(...COMMUNITY_MLC);                        // community builds last, never the default
 
   console.log(`✅ ${matched.length} compatible models`);
   matched.forEach(m => console.log(`  ${m.model_id}`));
@@ -1532,7 +1569,7 @@ async function initModelPicker() {
     const label = m.model_id.replace(/-MLC$/i,'').replace(/-q4f\d+_\d+/i,'').replace(/-[Ii]nstruct/,'');
     const prec = m.model_id.includes('q4f16') ? 'f16' : 'f32';
     const custom = customModels.includes(m);
-    const vram = [custom && (m.model.startsWith(LOCAL_BASE) ? '★ locale' : '★ personalizzato'), m.vram_required_MB && `~${m.vram_required_MB} MB`].filter(Boolean).join(' · ');
+    const vram = [custom && (m.model.startsWith(LOCAL_BASE) ? '★ locale' : '★ personalizzato'), m.community && '★ community · EN/中文', m.vram_required_MB && `~${m.vram_required_MB} MB`].filter(Boolean).join(' · ');
 
     const btn = document.createElement('button');
     btn.className = 'model-option';
@@ -1579,10 +1616,11 @@ async function initModelPicker() {
   $picker.appendChild(grp);
   ggufModels().forEach(m => {
     const btn = document.createElement('button');
-    btn.className = 'model-option';
+    btn.className = 'model-option gguf';
+    if (m.format === 'chatml') btn.dataset.chat = '1';
     btn.dataset.modelId = m.model_id;
     btn.innerHTML = `<div class="model-radio"></div><div class="model-info"><div class="model-name">${escHtml(m.model_id)}${m.it ? IT_FLAG : ''}</div>
-      <div class="model-desc">GGUF · CPU${m.size ? ` · ~${m.size} MB` : ''}</div></div>`;
+      <div class="model-desc">GGUF · CPU${m.size ? ` · ~${m.size} MB` : ''}${m.note ? ` · ${escHtml(m.note)}` : ''}</div></div>`;
     btn.onclick = () => {
       document.querySelectorAll('.model-option').forEach(el => el.classList.remove('selected'));
       btn.classList.add('selected');
@@ -1598,6 +1636,18 @@ async function initModelPicker() {
     };
     $picker.appendChild(btn);
   });
+
+  if (!gpuOk) {
+    const warn = document.createElement('div');
+    warn.style.cssText = 'padding:12px 14px;border:1px solid var(--accent);background:var(--accent-soft);border-radius:var(--r-md);font-size:13px;line-height:1.55;color:var(--ink)';
+    warn.innerHTML = '<b>WebGPU non disponibile</b> in questo browser: i modelli WebLLM non partiranno. '
+      + 'Usa i modelli <b>GGUF (CPU)</b> qui sotto, oppure attiva l\'accelerazione hardware '
+      + '(<code>chrome://settings/system</code>), controlla <code>chrome://gpu</code> e aggiorna i driver della scheda video.';
+    $picker.prepend(warn);
+    document.querySelectorAll('.model-option:not(.gguf)').forEach(el => { el.style.opacity = '.5'; });
+    // preselect a CPU chat model (an instruct one, not a base model)
+    document.querySelector('.model-option.gguf[data-chat="1"]')?.click();
+  }
 }
 
 initModelPicker();
@@ -1650,7 +1700,10 @@ window.startModel = async function() {
       console.error(`❌ ${tryId}:`, err?.message || err);
       engine = null;
       if (tryId === toTry[toTry.length - 1]) {
-        $progressText.textContent = 'Errore: ' + (err?.message || '').slice(0, 80);
+        const msg = err?.message || '';
+        $progressText.textContent = /compatible GPU/i.test(msg)
+          ? 'WebGPU non disponibile: scegli un modello GGUF (CPU) o attiva l\'accelerazione hardware.'
+          : 'Errore: ' + msg.slice(0, 80);
         $btnStart.textContent = 'Inizia';
         $btnStart.disabled = false;
         return;
@@ -1905,7 +1958,8 @@ async function generate(conv, op = null) {
 
   try {
     // Build messages for API (strip opLabel)
-    const sys = stateless ? SYSTEM : getAgent(conv.agentId).prompt.trim();
+    const ag = getAgent(conv.agentId);
+    const sys = stateless ? SYSTEM : ag.prompt.trim();
     const hist = stateless ? conv.messages.slice(-1) : trimHistory(conv.messages);
     const apiMsgs = [
       ...(sys ? [{ role: 'system', content: sys }] : []),
@@ -1915,10 +1969,12 @@ async function generate(conv, op = null) {
     const started = engine.chat.completions.create({
       messages: apiMsgs,
       stream: true,
-      temperature: stateless ? 0.3 : 0.5,
-      top_p: 0.9,
+      // text operations: fixed low temperature (as in the fine-tune eval); chat: agent override > model default > 0.5/0.9
+      temperature: stateless ? 0.3 : (ag.temperature ?? curRec()?.sampling?.temperature ?? 0.5),
+      top_p: ag.top_p ?? curRec()?.sampling?.top_p ?? 0.9,
       frequency_penalty: 0.3,
-      max_tokens: op ? op.maxTok : 512,
+      max_tokens: op ? op.maxTok : (ag.max_tokens ?? 512),
+      ...(noThink() ? { extra_body: { enable_thinking: false } } : {}), // MiniCPM5: no <think> block
     });
     started.catch(() => {}); // if stop wins the race, a later rejection must not surface
     const reply = await Promise.race([started, stopP]);
