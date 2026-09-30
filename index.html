@@ -1,0 +1,2082 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NEO · AI nel Browser</title>
+<link rel="icon" type="image/svg+xml" href="logo.svg">
+<meta name="description" content="NEO — Assistente AI che gira interamente nel tuo browser. Nessun server, privacy totale.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+<style>
+/* ═══════════════════════════════
+   Tokens — Desertant-inspired
+   ═══════════════════════════════ */
+:root {
+  --cream: #fbfaf4;
+  --paper: #f5f3eb;
+  --sand: #eae7dc;
+  --stone: #d4d0c5;
+  --ash: #9e9a8f;
+  --ink-light: #6b675d;
+  --ink: #3d3a33;
+  --ink-dark: #1a1814;
+  --accent: #c45d3e;
+  --accent-soft: rgba(196, 93, 62, 0.08);
+  --accent-hover: #a84e33;
+  --green: #4a7c59;
+  --green-soft: rgba(74, 124, 89, 0.08);
+
+  --sans: 'Inter', system-ui, -apple-system, sans-serif;
+  --serif: 'Source Serif 4', 'Georgia', serif;
+
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+
+  --ease: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+/* ═══════════════════════════════
+   Reset
+   ═══════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 16px; -webkit-font-smoothing: antialiased; }
+body {
+  font-family: var(--sans);
+  background: var(--cream);
+  color: var(--ink);
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+::-webkit-scrollbar { width: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--stone); border-radius: 3px; }
+
+/* ═══════════════════════════════
+   App Layout
+   ═══════════════════════════════ */
+#app {
+  display: flex;
+  height: 100vh;
+}
+
+/* ═══════════════════════════════
+   Sidebar — Conversations
+   ═══════════════════════════════ */
+.sidebar {
+  width: 260px;
+  min-width: 260px;
+  background: var(--paper);
+  border-right: 1px solid var(--sand);
+  display: flex;
+  flex-direction: column;
+  transition: transform 350ms var(--ease);
+  z-index: 10;
+}
+
+.sidebar-head {
+  padding: 20px 20px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  color: var(--ink-dark);
+}
+
+.sidebar-brand svg {
+  width: 28px;
+  height: 28px;
+}
+
+.sidebar-brand span {
+  font-family: var(--serif);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+}
+
+.btn-new {
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--sand);
+  border-radius: var(--r-sm);
+  background: var(--cream);
+  color: var(--ink-light);
+  font-size: 18px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 150ms;
+}
+
+.btn-new:hover {
+  background: var(--sand);
+  color: var(--ink);
+}
+
+/* Agents */
+.agent-row { display: flex; gap: 6px; padding: 0 12px 12px; }
+.agent-row select, .ag-dialog input, .ag-dialog textarea {
+  font-family: var(--sans); font-size: 13px; color: var(--ink);
+  background: var(--cream); border: 1px solid var(--sand);
+  border-radius: var(--r-sm); padding: 6px 8px;
+}
+.agent-row select { flex: 1; min-width: 0; }
+.ag-dialog {
+  margin: auto; width: min(480px, 92vw); padding: 20px;
+  background: var(--paper); color: var(--ink);
+  border: 1px solid var(--sand); border-radius: var(--r-md);
+}
+.ag-dialog::backdrop { background: rgba(26,24,20,0.4); }
+.ag-dialog label { display: block; font-size: 11px; font-weight: 600; color: var(--ash); margin: 10px 0 4px; text-transform: uppercase; }
+.ag-dialog input, .ag-dialog textarea { width: 100%; }
+.ag-dialog textarea { min-height: 160px; resize: vertical; line-height: 1.5; }
+.ag-actions { display: flex; gap: 8px; margin-top: 14px; }
+.ag-actions button { padding: 8px 14px; border-radius: var(--r-sm); border: 1px solid var(--sand); background: var(--cream); color: var(--ink); cursor: pointer; font-family: var(--sans); }
+.ag-actions .primary { background: var(--ink-dark); color: var(--cream); border-color: var(--ink-dark); }
+.ag-actions .danger { color: var(--accent); margin-left: auto; }
+
+/* Conversation list */
+.conv-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 0 12px;
+}
+
+.conv-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  transition: background 150ms;
+  border: none;
+  background: none;
+  width: 100%;
+  text-align: left;
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--ink-light);
+  line-height: 1.4;
+}
+
+.toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 200;
+  max-width: 90vw; padding: 10px 16px; border-radius: var(--r-md);
+  background: var(--ink-dark); color: var(--cream); font-size: 13px; box-shadow: 0 8px 24px rgba(0,0,0,.2);
+}
+.conv-row { position: relative; }
+.conv-row .conv-item { padding-right: 34px; }
+.conv-del {
+  position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+  width: 24px; height: 24px; border: none; border-radius: 6px; background: none;
+  color: var(--ash); font-size: 12px; cursor: pointer; opacity: 0; transition: opacity 150ms, background 150ms;
+}
+.conv-row:hover .conv-del, .conv-del:focus-visible { opacity: 1; }
+.conv-del:hover { background: var(--sand); color: var(--accent); }
+@media (hover: none) { .conv-del { opacity: .6; } }  /* no hover on touch screens */
+.conv-item:hover { background: var(--sand); }
+.conv-item.active {
+  background: var(--cream);
+  color: var(--ink-dark);
+  font-weight: 500;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.conv-item .conv-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--stone);
+  flex-shrink: 0;
+}
+
+.conv-item.active .conv-dot { background: var(--accent); }
+
+.conv-item .conv-label {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.conv-empty {
+  padding: 20px;
+  text-align: center;
+  color: var(--ash);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Sidebar footer */
+.sidebar-foot {
+  padding: 14px 20px;
+  border-top: 1px solid var(--sand);
+  font-size: 11px;
+  color: var(--ash);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.sidebar-foot .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.sidebar-foot.clickable { cursor: pointer; }
+.sidebar-foot.clickable:hover { background: var(--sand); }
+.sidebar-foot .swap { margin-left: auto; display: none; }
+.sidebar-foot.clickable .swap { display: inline; }
+.sidebar-foot .dot.off { background: var(--stone); }
+.sidebar-foot .dot.on { background: var(--green); }
+
+/* ═══════════════════════════════
+   Main Area
+   ═══════════════════════════════ */
+.main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;   /* without this a long chat grows the page instead of scrolling */
+  position: relative;
+}
+
+/* ═══════════════════════════════
+   Onboarding — Model picker
+   ═══════════════════════════════ */
+.onboard {
+  flex: 1;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 60px 24px 40px;
+  overflow-y: auto;
+}
+
+.onboard-card {
+  max-width: 480px;
+  width: 100%;
+  text-align: center;
+}
+
+.onboard-card h1 {
+  font-family: var(--serif);
+  font-size: 32px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  color: var(--ink-dark);
+  margin-bottom: 8px;
+}
+
+.onboard-card p {
+  font-size: 15px;
+  color: var(--ink-light);
+  line-height: 1.6;
+  margin-bottom: 28px;
+}
+
+.model-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+  margin-bottom: 20px;
+}
+
+.model-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  background: var(--paper);
+  border: 1.5px solid var(--sand);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: all 200ms var(--ease);
+  font-family: var(--sans);
+  width: 100%;
+  text-align: left;
+}
+
+.model-option:hover {
+  border-color: var(--stone);
+  background: var(--cream);
+}
+
+.model-option.selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.model-option input[type="radio"] {
+  display: none;
+}
+
+.model-radio {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 2px solid var(--stone);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 200ms;
+}
+
+.model-option.selected .model-radio {
+  border-color: var(--accent);
+}
+
+.model-radio::after {
+  content: '';
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  transform: scale(0);
+  transition: transform 200ms var(--ease);
+}
+
+.model-option.selected .model-radio::after {
+  transform: scale(1);
+}
+
+.model-info { flex: 1; }
+
+.model-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--ink-dark);
+  margin-bottom: 2px;
+}
+
+.model-desc {
+  font-size: 12px;
+  color: var(--ash);
+}
+
+.btn-start {
+  width: 100%;
+  padding: 14px;
+  background: var(--ink-dark);
+  border: none;
+  border-radius: var(--r-md);
+  color: var(--cream);
+  font-size: 15px;
+  font-weight: 500;
+  font-family: var(--sans);
+  cursor: pointer;
+  transition: all 200ms var(--ease);
+  letter-spacing: -0.2px;
+}
+
+.btn-start:hover {
+  background: var(--ink);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.btn-start:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+/* Progress */
+.onboard-progress {
+  margin-top: 16px;
+  display: none;
+}
+
+.onboard-progress.active { display: block; }
+
+.progress-track {
+  height: 3px;
+  background: var(--sand);
+  border-radius: 2px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+  width: 0%;
+  transition: width 200ms ease-out;
+}
+
+.progress-text {
+  font-size: 12px;
+  color: var(--ash);
+  text-align: center;
+}
+
+/* ═══════════════════════════════
+   Chat View (hidden until model loads)
+   ═══════════════════════════════ */
+.chat-view {
+  flex: 1;
+  min-height: 0;
+  display: none;
+  flex-direction: column;
+}
+
+.chat-view.active { display: flex; }
+
+/* Chat messages */
+.chat-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 24px 24px 16px;
+}
+
+.chat-messages-inner {
+  max-width: 680px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.msg {
+  animation: msgIn 300ms var(--ease);
+}
+
+@keyframes msgIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.msg-role {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 6px;
+}
+
+.msg.user .msg-role { color: var(--accent); }
+.msg.assistant .msg-role { color: var(--ink-light); }
+
+.msg-body {
+  font-size: 15px;
+  line-height: 1.75;
+  color: var(--ink);
+}
+
+.msg.assistant .msg-body {
+  font-family: var(--serif);
+  font-size: 16px;
+}
+
+/* Op badge */
+.msg-op-badge {
+  display: inline-block;
+  padding: 2px 8px;
+  background: var(--accent-soft);
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent);
+  margin-bottom: 6px;
+  font-family: var(--sans);
+}
+
+/* Copy */
+.msg-actions {
+  margin-top: 6px;
+  opacity: 0;
+  transition: opacity 150ms;
+}
+
+.msg:hover .msg-actions { opacity: 1; }
+
+.btn-copy-msg {
+  padding: 3px 8px;
+  background: none;
+  border: 1px solid var(--sand);
+  border-radius: 4px;
+  font-size: 11px;
+  color: var(--ash);
+  cursor: pointer;
+  font-family: var(--sans);
+  transition: all 150ms;
+}
+
+.btn-copy-msg:hover {
+  border-color: var(--stone);
+  color: var(--ink-light);
+}
+
+/* Typing */
+.typing { display: flex; gap: 4px; padding: 4px 0; }
+.typing span {
+  width: 5px; height: 5px; border-radius: 50%;
+  background: var(--stone);
+  animation: typeBounce 1.2s ease-in-out infinite;
+}
+.typing span:nth-child(2) { animation-delay: 0.15s; }
+.typing span:nth-child(3) { animation-delay: 0.3s; }
+@keyframes typeBounce {
+  0%, 60%, 100% { transform: translateY(0); opacity: 0.3; }
+  30% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* Markdown basics */
+.msg-body code {
+  background: var(--sand);
+  padding: 1px 5px;
+  border-radius: 3px;
+  font-size: 13px;
+}
+.msg-body pre {
+  background: var(--paper);
+  border: 1px solid var(--sand);
+  padding: 12px;
+  border-radius: var(--r-sm);
+  overflow-x: auto;
+  margin: 8px 0;
+}
+.msg-body pre code { background: none; padding: 0; }
+.msg-body strong { font-weight: 600; }
+.msg-body ul, .msg-body ol { padding-left: 20px; margin: 4px 0; }
+
+/* ═══════════════════════════════
+   Input Bar
+   ═══════════════════════════════ */
+.input-bar {
+  padding: 12px 24px 20px;
+  border-top: 1px solid var(--sand);
+  background: var(--cream);
+}
+
+.input-bar-inner {
+  max-width: 680px;
+  margin: 0 auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.input-box {
+  flex: 1;
+  position: relative;
+}
+
+.chat-input {
+  width: 100%;
+  padding: 12px 14px;
+  padding-right: 44px;
+  background: var(--paper);
+  border: 1.5px solid var(--sand);
+  border-radius: var(--r-md);
+  font-size: 14px;
+  font-family: var(--sans);
+  color: var(--ink);
+  resize: none;
+  min-height: 44px;
+  max-height: 140px;
+  line-height: 1.5;
+  transition: border-color 150ms;
+}
+
+.chat-input:focus {
+  outline: none;
+  border-color: var(--stone);
+}
+
+.chat-input::placeholder { color: var(--ash); }
+
+.btn-send {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 32px;
+  height: 32px;
+  background: var(--ink-dark);
+  border: none;
+  border-radius: var(--r-sm);
+  color: var(--cream);
+  font-size: 14px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 150ms;
+}
+
+.btn-send:hover { background: var(--ink); }
+.btn-send:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.btn-stop {
+  position: absolute;
+  right: 6px;
+  bottom: 6px;
+  width: 32px;
+  height: 32px;
+  background: var(--accent-soft);
+  border: 1px solid var(--accent);
+  border-radius: var(--r-sm);
+  color: var(--accent);
+  font-size: 12px;
+  cursor: pointer;
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ═══════════════════════════════
+   Commands popover (/ menu)
+   ═══════════════════════════════ */
+.cmd-trigger {
+  width: 32px;
+  height: 32px;
+  background: none;
+  border: 1px solid var(--sand);
+  border-radius: var(--r-sm);
+  color: var(--ash);
+  font-size: 16px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 150ms;
+  flex-shrink: 0;
+  align-self: flex-end;
+  margin-bottom: 6px;
+}
+
+.cmd-trigger:hover {
+  background: var(--sand);
+  color: var(--ink);
+}
+
+.conv-label small { display: block; font-size: 10px; color: var(--ash); font-weight: 400; }
+.chips { max-width: 680px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 6px; }
+.chips:not(:empty) { margin-bottom: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 4px 3px 10px; font-size: 12px; background: var(--paper); border: 1px solid var(--sand); border-radius: 999px; color: var(--ink-light); }
+.chip.err { color: var(--accent); border-color: var(--accent); }
+.chip button { border: none; background: none; cursor: pointer; color: var(--ash); font-size: 11px; padding: 2px 6px; }
+.cmd-trigger.on { background: var(--accent-soft); border-color: var(--accent); }
+
+.cmd-popover {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  background: var(--cream);
+  border: 1px solid var(--sand);
+  border-radius: var(--r-md);
+  box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+  padding: 6px;
+  display: none;
+  z-index: 20;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.cmd-popover.open { display: block; }
+
+.cmd-popover-title {
+  padding: 8px 10px 6px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+  color: var(--ash);
+}
+
+.cmd-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  width: 100%;
+  text-align: left;
+  font-family: var(--sans);
+  font-size: 13px;
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 100ms;
+}
+
+.cmd-item:hover { background: var(--paper); }
+
+.cmd-icon {
+  width: 20px;
+  text-align: center;
+  font-size: 14px;
+  flex-shrink: 0;
+}
+
+.cmd-label { font-weight: 500; }
+.cmd-desc {
+  font-size: 11px;
+  color: var(--ash);
+  margin-top: 1px;
+}
+
+/* ═══════════════════════════════
+   Responsive
+   ═══════════════════════════════ */
+.sidebar-overlay {
+  position: fixed; inset: 0;
+  background: rgba(26,24,20,0.3);
+  z-index: 9; opacity: 0;
+  pointer-events: none;
+  transition: opacity 250ms;
+}
+.sidebar-overlay.active { opacity: 1; pointer-events: all; }
+
+.btn-menu {
+  display: none;
+  width: 36px; height: 36px;
+  background: none;
+  border: 1px solid var(--sand);
+  border-radius: var(--r-sm);
+  color: var(--ink-light);
+  font-size: 18px;
+  cursor: pointer;
+  align-items: center;
+  justify-content: center;
+  position: absolute;
+  top: 14px; left: 14px;
+  z-index: 5;
+}
+
+@media (max-width: 720px) {
+  .sidebar {
+    position: fixed; left: 0; top: 0; bottom: 0;
+    transform: translateX(-100%);
+    z-index: 20;
+    box-shadow: 4px 0 24px rgba(0,0,0,0.08);
+  }
+  .sidebar.open { transform: translateX(0); }
+  .btn-menu { display: flex; }
+  .onboard-card h1 { font-size: 26px; }
+}
+
+/* ═══════════════════════════════
+   Dark theme overrides
+   ═══════════════════════════════ */
+html.dark {
+  --cream: #1a1814;
+  --paper: #23211b;
+  --sand: #2e2b24;
+  --stone: #3d3a33;
+  --ash: #8a867b;
+  --ink-light: #c4bfb5;
+  --ink: #e8e4dc;
+  --ink-dark: #fbfaf4;
+  --accent: #d4744f;
+  --accent-soft: rgba(212, 116, 79, 0.12);
+  --accent-hover: #e08a5f;
+  --green: #6fa87d;
+  --green-soft: rgba(111, 168, 125, 0.12);
+}
+
+html.dark .sidebar {
+  border-right-color: var(--sand);
+}
+
+html.dark .msg-body pre {
+  background: var(--sand);
+  border-color: var(--stone);
+}
+
+/* ═══════════════════════════════
+   WebGPU warning
+   ═══════════════════════════════ */
+.gpu-warning {
+  display: none;
+  position: fixed; inset: 0;
+  background: var(--cream);
+  z-index: 100;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  text-align: center;
+  padding: 40px;
+}
+.gpu-warning.visible { display: flex; }
+.gpu-warning h2 { font-family: var(--serif); font-size: 22px; margin: 12px 0 6px; }
+.gpu-warning p { color: var(--ink-light); max-width: 360px; font-size: 14px; line-height: 1.6; }
+</style>
+</head>
+<body>
+
+<div class="gpu-warning" id="gpu-warning">
+  <div style="font-size: 48px;">⚠</div>
+  <h2>WebGPU non disponibile</h2>
+  <p>Il tuo browser non supporta WebGPU. Usa Chrome, Edge o Firefox aggiornati.</p>
+</div>
+
+<dialog class="ag-dialog" id="ag-dialog">
+  <label for="ag-name">Nome agente</label>
+  <input id="ag-name" maxlength="40">
+  <label for="ag-prompt">System prompt</label>
+  <textarea id="ag-prompt" placeholder="Es. Sei un traduttore. Traduci tutto in inglese."></textarea>
+  <div class="ag-actions">
+    <button class="primary" onclick="saveAgent()">Salva</button>
+    <button onclick="this.closest('dialog').close()">Chiudi</button>
+    <button class="danger" onclick="delAgent()">Elimina</button>
+  </div>
+</dialog>
+
+<dialog class="ag-dialog" id="ask-dialog">
+  <p id="ask-msg" style="font-size:14px;line-height:1.55;white-space:pre-line"></p>
+  <input id="ask-input" style="display:none;margin-top:10px">
+  <div class="ag-actions"><button class="primary" id="ask-ok">OK</button><button id="ask-no">Annulla</button></div>
+</dialog>
+
+<dialog class="ag-dialog" id="cm-dialog">
+  <label for="cm-id">Nome modello (id)</label>
+  <input id="cm-id" placeholder="neo-1b-q4f16_1-MLC">
+  <label for="cm-model">URL pesi (cartella MLC)</label>
+  <input id="cm-model" placeholder="https://huggingface.co/utente/neo-1b-q4f16_1-MLC  oppure  models/neo-1b/resolve/main/">
+  <label for="cm-lib">URL libreria WebGPU (.wasm)</label>
+  <input id="cm-lib" placeholder="https://…/lib.wasm  ·  models/neo/lib.wasm  ·  @Qwen2.5-1.5B-Instruct-q4f16_1-MLC (riusa il .wasm del catalogo)">
+  <label for="cm-ctx">Contesto (token, opzionale)</label>
+  <input id="cm-ctx" type="number" placeholder="4096">
+  <label for="cm-vram">VRAM richiesta MB (opzionale)</label>
+  <input id="cm-vram" type="number" placeholder="1500">
+  <label for="cm-gguf">Oppure un file GGUF (URL, gira con wllama sulla CPU)</label>
+  <input id="cm-gguf" placeholder="https://huggingface.co/utente/repo/resolve/main/modello.Q4_K_M.gguf">
+  <div class="ag-actions"><button onclick="addGguf()">Aggiungi GGUF</button></div>
+  <label for="cm-folder">Oppure carica dal disco: cartella MLC</label>
+  <input id="cm-folder" type="file" webkitdirectory>
+  <label for="cm-wasm">File .wasm (se non è nella cartella)</label>
+  <input id="cm-wasm" type="file" accept=".wasm">
+  <div class="ag-actions"><button onclick="importLocal()">Importa cartella dal disco</button><span id="cm-status" style="font-size:12px;color:var(--ash);align-self:center"></span></div>
+  <label><input type="checkbox" id="cm-f16" style="width:auto"> richiede shader-f16 (quantizzazione q4f16)</label>
+  <div class="ag-actions">
+    <button class="primary" onclick="addCustom()">Aggiungi</button>
+    <button onclick="this.closest('dialog').close()">Chiudi</button>
+  </div>
+</dialog>
+
+<div class="sidebar-overlay" id="sidebar-overlay"></div>
+
+<div id="app">
+  <!-- Sidebar -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-head">
+      <a class="sidebar-brand" href="#">
+        <img src="logo.svg" alt="" width="28" height="28">
+        <span>Neo</span>
+      </a>
+      <button class="btn-new" id="btn-new-chat" title="Nuova chat" onclick="newConversation()">+</button>
+      <button class="btn-new" id="btn-theme" title="Tema" onclick="toggleTheme()" aria-label="Tema chiaro/scuro">◐</button>
+    </div>
+
+    <div class="agent-row">
+      <select id="agent-sel" title="Agente" onchange="setAgent(this.value)"></select>
+      <button class="btn-new" title="Modifica agente" onclick="editAgent()">⚙</button>
+      <button class="btn-new" title="Nuovo agente" onclick="newAgent()">+</button>
+    </div>
+
+    <div class="conv-list" id="conv-list">
+      <div class="conv-empty" id="conv-empty">Le conversazioni appariranno qui.</div>
+    </div>
+
+    <div class="sidebar-foot" id="status-foot" onclick="changeModel()" title="Cambia modello">
+      <span class="dot off" id="status-dot"></span>
+      <span id="status-label">Nessun modello</span>
+      <span class="swap">⇄ Cambia</span>
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="main">
+    <button class="btn-menu" id="btn-menu" onclick="toggleSidebar()">☰</button>
+
+    <!-- Onboarding -->
+    <div class="onboard" id="onboard">
+      <div class="onboard-card">
+        <h1>Scegli un modello</h1>
+        <p>Tutto gira nel tuo browser via WebGPU.<br>Nessun dato lascia il tuo dispositivo.</p>
+
+        <div class="model-picker" id="model-picker">
+          <!-- populated dynamically -->
+          <div style="color: var(--ash); font-size: 13px; text-align: center; padding: 16px;">Caricamento catalogo…</div>
+        </div>
+
+        <button class="btn-new" id="btn-back" style="display:none;width:auto;padding:0 12px;margin:0 auto 10px;font-size:13px;" onclick="backToChat()">← Torna alla chat</button>
+        <button class="btn-new" style="width:auto;padding:0 12px;margin:0 auto 16px;font-size:13px;" onclick="document.getElementById('cm-dialog').showModal()">+ Modello personalizzato</button>
+        <button class="btn-start" id="btn-start" onclick="startModel()" disabled>Inizia</button>
+
+        <div class="onboard-progress" id="onboard-progress">
+          <div class="progress-track"><div class="progress-fill" id="progress-fill"></div></div>
+          <div class="progress-text" id="progress-text">Preparazione…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Chat -->
+    <div class="chat-view" id="chat-view">
+      <div class="chat-messages" id="chat-messages">
+        <div class="chat-messages-inner" id="chat-inner"></div>
+      </div>
+
+      <div class="input-bar">
+        <div class="chips" id="chips"></div>
+        <input type="file" id="file-input" multiple hidden accept="image/*,.pdf,text/*,.md,.csv,.json,.xml,.js,.ts,.py,.java,.c,.cpp,.go,.rs,.sh,.sql,.yml,.yaml,.toml,.ini,.log">
+        <div class="input-bar-inner" style="position: relative;">
+          <button class="cmd-trigger" id="cmd-trigger" onclick="toggleCommands()" title="Comandi testo">⚡</button>
+          <button class="cmd-trigger" onclick="pickFiles()" title="Allega file, PDF o immagini (OCR, in locale)">📎</button>
+          <button class="cmd-trigger" id="web-toggle" onclick="toggleWeb()" title="Ricerca web (i dati personali vengono mascherati)">🌐</button>
+          <div class="input-box">
+            <textarea class="chat-input" id="chat-input" rows="1" placeholder="Scrivi qualcosa…"></textarea>
+            <button class="btn-send" id="btn-send" onclick="sendMessage()">↑</button>
+            <button class="btn-stop" id="btn-stop" onclick="stopGen()">■</button>
+          </div>
+
+          <!-- Commands popover -->
+          <div class="cmd-popover" id="cmd-popover"></div>
+        </div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script type="module">
+import * as webllm from 'https://esm.run/@mlc-ai/web-llm';
+
+// project renamed leo → neo: carry over what was saved under the old name
+for (const k of ['theme', 'convs', 'agents', 'agent', 'custom', 'tavily']) {
+  const old = localStorage.getItem('leo-' + k);
+  if (old !== null && localStorage.getItem('neo-' + k) === null) localStorage.setItem('neo-' + k, old);
+}
+
+window.toggleTheme = () => {
+  const html = document.documentElement;
+  html.classList.toggle('dark');
+  localStorage.setItem('neo-theme', html.classList.contains('dark') ? 'dark' : 'light');
+};
+// Init theme from storage / pref
+(function initTheme() {
+  const stored = localStorage.getItem('neo-theme');
+  const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+  if (stored === 'dark' || (!stored && prefersDark)) {
+    document.documentElement.classList.add('dark');
+  }
+})();
+
+// WebGPU check
+if (!navigator.gpu) {
+  document.getElementById('gpu-warning').classList.add('visible');
+}
+
+// ── State ──────────────────────────────────
+let engine = null;
+let worker = null;
+let isGenerating = false;
+let currentStop = null;   // resolves the running generation's stop promise
+let genId = 0;            // bumps on every generation; lets a repeated interrupt know when to stop
+let currentModelId = null;
+let conversations = (() => { // [{id, title, agentId, messages:[]}]
+  try { return JSON.parse(localStorage.getItem('neo-convs')) || []; } catch { return []; }
+})();
+let activeConvId = null;
+// ponytail: whole list rewritten on each save; fine until localStorage (~5MB) fills
+const saveConvs = () => {
+  try { localStorage.setItem('neo-convs', JSON.stringify(conversations.filter(c => c.messages.length))); } catch {}
+};
+
+// ── Operation prompts ──────────────────────
+// ── Text operations ─────────────────────────
+// Prompts are IDENTICAL to the fine-tune notebook (neo_finetune_v4): training and inference must match.
+const SYSTEM = "Sei un assistente di scrittura che lavora in locale. Rispondi SOLO con il risultato richiesto, senza premesse, commenti o virgolette di contorno. Usa la stessa lingua del testo dell'utente, salvo diversa richiesta. Non inventare fatti che non sono nel testo.";
+const TONES = {
+  professional: 'professionale e curato', casual: 'informale e colloquiale', enthusiastic: 'entusiasta e positivo',
+  informative: 'informativo e neutro', creative: 'creativo e vivace',
+};
+const PLATFORMS = {
+  linkedin: 'un post LinkedIn (tono professionale, 3-5 frasi, massimo 3 hashtag)',
+  x: 'un post per X/Twitter (massimo 280 caratteri, massimo 2 hashtag)',
+  instagram: 'una didascalia Instagram (tono coinvolgente, qualche emoji, 5-8 hashtag in fondo)',
+  facebook: 'un post Facebook (tono amichevole, 2-4 frasi)',
+};
+function buildPrompt(action, param, text) {
+  const ins = {
+    summary:    () => 'Riassumi il testo seguente in modo chiaro e conciso (un paragrafo breve oppure al massimo 5 punti elenco).',
+    explain:    () => "Spiega il testo seguente in parole semplici, come a chi non conosce l'argomento. Chiarisci i termini difficili.",
+    paraphrase: () => 'Parafrasa il testo seguente con parole diverse, mantenendo lo stesso significato e la stessa lunghezza circa.',
+    improve:    () => 'Migliora il testo seguente: correggi errori e refusi e rendi lo stile più chiaro e scorrevole, senza cambiare il significato.',
+    tone:       () => `Riscrivi il testo seguente con un tono ${TONES[param]}, mantenendo il significato.`,
+    length:     () => param === 'shorter'
+      ? 'Riscrivi il testo seguente in forma molto più breve, tenendo solo le informazioni essenziali.'
+      : 'Riscrivi il testo seguente in forma più lunga e sviluppata, aggiungendo chiarezza e fluidità ma nessun fatto nuovo.',
+    quote:      () => "Dal testo seguente ricava una citazione breve e memorabile (una o due frasi) che ne catturi l'idea centrale.",
+    social:     () => `Crea ${PLATFORMS[param]} basato sul testo seguente.`,
+    translate:  () => 'Traduci il testo seguente in inglese, mantenendo lo stile originale.', // not in the training set
+  }[action]();
+  return `${ins}\n\nTESTO:\n"""\n${text}\n"""`;
+}
+// key: [label, action, param, icon, description, max_new_tokens (same caps as the notebook)]
+const OPS = {
+  riepilogo:        ['Riepilogo', 'summary', '', '✎', 'Riassumi il testo nella textarea', 220],
+  spiegazione:      ['Spiegazione', 'explain', '', '○', 'Spiega in modo semplice', 320],
+  parafrasi:        ['Parafrasi', 'paraphrase', '', '↻', 'Riscrivi con parole diverse', 350],
+  migliora:         ['Migliora', 'improve', '', '↑', 'Correggi errori, rendi efficace', 380],
+  tono_formale:     ['Tono professionale', 'tone', 'professional', '◆', 'Rendi professionale', 380],
+  tono_casual:      ['Tono casual', 'tone', 'casual', '◇', 'Informale e amichevole', 380],
+  tono_entusiasta:  ['Tono entusiasta', 'tone', 'enthusiastic', '★', 'Positivo ed energico', 380],
+  tono_informativo: ['Tono informativo', 'tone', 'informative', 'ℹ', 'Neutro e chiaro', 380],
+  tono_creativo:    ['Tono creativo', 'tone', 'creative', '✦', 'Vivace e originale', 380],
+  accorcia:         ['Accorcia', 'length', 'shorter', '–', "Solo l'essenziale", 420],
+  allunga:          ['Allunga', 'length', 'longer', '+', 'Più sviluppato, senza fatti nuovi', 420],
+  citazione:        ['Citazione', 'quote', '', '❝', 'Ricava una citazione memorabile', 90],
+  social_linkedin:  ['Post LinkedIn', 'social', 'linkedin', '💼', 'Professionale, max 3 hashtag', 200],
+  social_x:         ['Post X', 'social', 'x', '𝕏', 'Max 280 caratteri', 200],
+  social_instagram: ['Didascalia Instagram', 'social', 'instagram', '📷', 'Emoji e 5-8 hashtag', 200],
+  social_facebook:  ['Post Facebook', 'social', 'facebook', 'f', 'Amichevole, 2-4 frasi', 200],
+  traduci_en:       ['Traduzione EN', 'translate', '', '⇆', 'Traduci in inglese', 400],
+};
+
+// ── Agents (editable system prompts) ───────
+const DEF_PROMPT = 'Sei Neo, assistente AI. Rispondi sempre in italiano, in modo breve e diretto. Se non sai la risposta, dillo.';
+let agents = (() => {
+  try {
+    const a = JSON.parse(localStorage.getItem('neo-agents'));
+    if (a?.length) return a.map(x => x.id === 'leo' ? { ...x, id: 'neo', name: x.name === 'Leo' ? 'Neo' : x.name, prompt: x.prompt.replace(/^Sei Leo/, 'Sei Neo') } : x);
+  } catch {}
+  return [{ id: 'neo', name: 'Neo', prompt: DEF_PROMPT }];
+})();
+let curAgentId = localStorage.getItem('neo-agent') || agents[0].id;
+const getAgent = id => agents.find(a => a.id === id) || agents[0];
+const saveAgents = () => localStorage.setItem('neo-agents', JSON.stringify(agents));
+
+function renderAgents() {
+  const sel = document.getElementById('agent-sel');
+  sel.innerHTML = agents.map(a => `<option value="${a.id}">${escHtml(a.name)}</option>`).join('');
+  curAgentId = getAgent(curAgentId).id;
+  sel.value = curAgentId;
+}
+
+window.setAgent = function(id) {
+  curAgentId = id;
+  localStorage.setItem('neo-agent', id);
+  const conv = getActiveConv();
+  if (conv) conv.agentId = id;
+  renderAgents();
+};
+
+window.editAgent = function() {
+  const a = getAgent(curAgentId);
+  document.getElementById('ag-name').value = a.name;
+  document.getElementById('ag-prompt').value = a.prompt;
+  document.getElementById('ag-dialog').showModal();
+};
+
+window.newAgent = function() {
+  const a = { id: Date.now().toString(36), name: 'Nuovo agente', prompt: DEF_PROMPT };
+  agents.push(a);
+  saveAgents();
+  setAgent(a.id);
+  editAgent();
+};
+
+window.saveAgent = function() {
+  const a = getAgent(curAgentId);
+  a.name = document.getElementById('ag-name').value.trim() || 'Agente';
+  a.prompt = document.getElementById('ag-prompt').value;
+  saveAgents();
+  renderAgents();
+  document.getElementById('ag-dialog').close();
+};
+
+window.delAgent = function() {
+  if (agents.length < 2) return; // keep at least one
+  agents = agents.filter(a => a.id !== curAgentId);
+  saveAgents();
+  setAgent(agents[0].id);
+  document.getElementById('ag-dialog').close();
+};
+
+// ── Web search (opt-in). Query is PII-masked on device by Desert Ant "Redact" first;
+// if Redact can't load, the search is refused (fail closed).
+let webOn = false;
+let redactP;
+async function safeQuery(text) {
+  redactP ??= import('https://esm.sh/@desert-ant-labs/redact')
+    .then(m => m.Redact.load())
+    .catch(e => { redactP = null; throw e; });
+  const { redactedText } = await (await redactP).redaction(text);
+  return redactedText.replace(/\[[A-Z_]+_\d+\]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 300);
+}
+
+async function webSearch(q) {
+  const key = localStorage.getItem('neo-tavily');
+  if (key) {
+    try {
+      const r = await fetch('https://api.tavily.com/search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + key },
+        body: JSON.stringify({ query: q, max_results: 4 }),
+      });
+      if (r.ok) return (await r.json()).results.map(x => ({ title: x.title, url: x.url, text: x.content.slice(0, 500) }));
+    } catch {} // fall through to Wikipedia
+  }
+  const u = 'https://it.wikipedia.org/w/api.php?' + new URLSearchParams({
+    action: 'query', generator: 'search', gsrsearch: q, gsrlimit: 3, prop: 'extracts',
+    exintro: 1, explaintext: 1, exchars: 600, format: 'json', origin: '*',
+  });
+  const pages = Object.values((await (await fetch(u)).json()).query?.pages || {}).sort((a, b) => a.index - b.index);
+  return pages.map(p => ({ title: p.title, url: 'https://it.wikipedia.org/?curid=' + p.pageid, text: p.extract }));
+}
+
+async function webContext(text) {
+  const q = await safeQuery(text);
+  if (!q) return null;
+  const res = (await webSearch(q)).filter(r => r.text);
+  if (!res.length) return null;
+  const ctx = res.map((r, i) => `[${i + 1}] ${r.title} (${r.url})\n${r.text}`).join('\n\n');
+  return { block: `Fonti web:\n${ctx}`, list: res.map((r, i) => `[${i + 1}] ${r.title} — ${r.url}`).join('\n') };
+}
+
+// ── Attachments: text/code, PDF (pdf.js), images (Tesseract OCR) — all on device ──
+let pending = []; // [{name, text, error}]
+const TEXT_RE = /\.(txt|md|csv|tsv|json|xml|html?|css|jsx?|tsx?|py|java|c|cpp|h|go|rs|sh|sql|ya?ml|toml|ini|log)$/i;
+let pdfjsP;
+
+async function pdfText(f) {
+  pdfjsP ??= (async () => {
+    const V = 'https://cdn.jsdelivr.net/npm/pdfjs-dist@4.10.38/build/';
+    const lib = await import(V + 'pdf.min.mjs');
+    lib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(
+      new Blob([await (await fetch(V + 'pdf.worker.min.mjs')).text()], { type: 'text/javascript' }));
+    return lib;
+  })().catch(e => { pdfjsP = null; throw e; });
+  const doc = await (await pdfjsP).getDocument({ data: new Uint8Array(await f.arrayBuffer()) }).promise;
+  let out = '';
+  for (let i = 1; i <= doc.numPages; i++) {
+    out += (await (await doc.getPage(i)).getTextContent()).items.map(x => x.str).join(' ') + '\n\n';
+  }
+  return out;
+}
+
+async function ocrText(f) {
+  if (!window.Tesseract) await new Promise((ok, ko) => {
+    const s = document.createElement('script');
+    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.onload = ok; s.onerror = () => ko(new Error('OCR non caricato'));
+    document.head.appendChild(s);
+  });
+  return (await Tesseract.recognize(f, 'ita+eng')).data.text;
+}
+
+async function extractText(f) {
+  if (f.size > 20e6) throw new Error('file troppo grande (max 20 MB)');
+  if (f.type.startsWith('image/')) return ocrText(f);
+  if (/\.pdf$/i.test(f.name)) return pdfText(f);
+  if (f.type.startsWith('text/') || TEXT_RE.test(f.name)) return f.text();
+  throw new Error('formato non supportato');
+}
+
+// Context is small (~4k tokens): keep only the chunks that best match the question.
+function pickChunks(text, q, budget) {
+  if (text.length <= budget) return text;
+  const words = q.toLowerCase().match(/\p{L}{4,}/gu) || [];
+  const chunks = (text.match(/[\s\S]{1,1000}(?=\s|$)/g) || [text]).map((c, i) => {
+    const l = c.toLowerCase();
+    return { i, c, s: words.filter(w => l.includes(w)).length };
+  });
+  let used = 0;
+  const keep = [...chunks].sort((a, b) => b.s - a.s || a.i - b.i)
+    .filter(x => (used += x.c.length) <= budget);
+  return keep.sort((a, b) => a.i - b.i).map(x => x.c.trim()).join('\n[…]\n');
+}
+
+function renderChips() {
+  const el = document.getElementById('chips');
+  el.innerHTML = '';
+  pending.forEach((f, i) => {
+    const c = document.createElement('span');
+    c.className = 'chip' + (f.error ? ' err' : '');
+    c.textContent = '📎 ' + f.name + (f.error ? ` — ${f.error}` : f.text == null ? ' …' : f.text.trim() ? '' : ' — nessun testo');
+    const x = document.createElement('button');
+    x.textContent = '✕';
+    x.onclick = () => { pending.splice(i, 1); renderChips(); };
+    c.appendChild(x);
+    el.appendChild(c);
+  });
+}
+
+window.pickFiles = () => document.getElementById('file-input').click();
+document.getElementById('file-input').addEventListener('change', async e => {
+  for (const f of e.target.files) {
+    const item = { name: f.name, text: null };
+    pending.push(item);
+    renderChips();
+    try { item.text = await extractText(f); } catch (err) { item.error = err.message; }
+    renderChips();
+  }
+  e.target.value = '';
+});
+
+// ── Topic tag per chat (Desert Ant "Gist", on device, loaded lazily in background) ──
+let gistP;
+async function tagConv(conv, text) {
+  if (conv.topic !== undefined) return;
+  conv.topic = null; // one attempt per chat
+  try {
+    gistP ??= import('https://esm.sh/@desert-ant-labs/gist')
+      .then(m => m.Gist.load())
+      .catch(e => { gistP = null; throw e; });
+    conv.topic = (await (await gistP).classify(text.slice(0, 500)))[0]?.name ?? null;
+    saveConvs();
+    renderConvList();
+  } catch (e) { console.warn('Gist:', e); }
+}
+
+window.toggleWeb = async function() {
+  webOn = !webOn;
+  document.getElementById('web-toggle').classList.toggle('on', webOn);
+  if (webOn && localStorage.getItem('neo-tavily') === null) {
+    const k = await ask('Ricerca web: le query escono dal dispositivo (dati personali mascherati in locale).\nChiave Tavily opzionale (vuoto = solo Wikipedia):', { ok: 'Salva', input: true });
+    localStorage.setItem('neo-tavily', (k || '').trim());
+  }
+};
+
+// Keep last messages within a char budget (~1.5k tokens); always keep the newest.
+function trimHistory(msgs, budget = 6000) {
+  let n = 0, i = msgs.length;
+  while (i > 0 && (n += msgs[i - 1].content.length) <= budget) i--;
+  return msgs.slice(Math.min(i, msgs.length - 1));
+}
+
+// ── DOM ────────────────────────────────────
+const $ = id => document.getElementById(id);
+const $onboard      = $('onboard');
+const $chatView     = $('chat-view');
+const $chatInner    = $('chat-inner');
+const $chatInput    = $('chat-input');
+const $btnSend      = $('btn-send');
+const $btnStop      = $('btn-stop');
+const $convList     = $('conv-list');
+const $convEmpty    = $('conv-empty');
+const $statusDot    = $('status-dot');
+const $statusLabel  = $('status-label');
+const $progressEl   = $('onboard-progress');
+const $progressFill = $('progress-fill');
+const $progressText = $('progress-text');
+const $btnStart     = $('btn-start');
+const $cmdPopover   = $('cmd-popover');
+
+// ── Model discovery ───────────────────────
+const DESIRED = [
+  'smollm', 'qwen2.5-0.5b', 'qwen2.5-1.5b', 'qwen2.5-3b',
+  'llama-3.2-1b', 'llama-3.2-3b', 'phi-3.5-mini', 'phi-4-mini',
+  'gemma-2-2b', 'gemma-3-1b', 'tinyllama',
+];
+
+// Custom models (your own MLC builds): stored locally, shown first in the picker.
+// WebLLM appends "resolve/main/" to `model` unless the URL already contains "/resolve/<branch>/".
+let customModels = (() => {
+  try { return JSON.parse(localStorage.getItem('neo-custom')) || []; } catch { return []; }
+})();
+const allModels = () => [...webllm.prebuiltAppConfig.model_list, ...customModels.filter(m => !m.gguf)];
+
+// In-page replacements for confirm/alert/prompt: embedded browsers and some settings suppress the native ones,
+// which made "Elimina" silently do nothing.
+function ask(msg, { ok = 'Elimina', input = false, value = '' } = {}) {
+  const d = document.getElementById('ask-dialog'), inp = document.getElementById('ask-input');
+  document.getElementById('ask-msg').textContent = msg;
+  document.getElementById('ask-ok').textContent = ok;
+  inp.style.display = input ? '' : 'none';
+  inp.value = value;
+  return new Promise(res => {
+    const done = v => { d.onclose = null; d.close(); res(v); };
+    document.getElementById('ask-ok').onclick = () => done(input ? inp.value : true);
+    document.getElementById('ask-no').onclick = () => done(input ? null : false);
+    d.onclose = () => res(input ? null : false); // Esc
+    d.showModal();
+    if (input) inp.focus();
+  });
+}
+function toast(msg) {
+  const t = document.createElement('div');
+  t.className = 'toast';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 4500);
+}
+
+const $g = id => document.getElementById(id);
+const absUrl = u => new URL(u.trim(), location.href).href; // relative paths → served from this origin
+// '@Qwen2.5-1.5B-Instruct-q4f16_1-MLC' → reuse that prebuilt model's .wasm (same architecture/quantization/context)
+function libUrl(u) {
+  if (!u.trim().startsWith('@')) return absUrl(u);
+  const l = webllm.prebuiltAppConfig.model_list.find(m => m.model_id === u.trim().slice(1))?.model_lib;
+  if (!l) throw new Error('modello del catalogo non trovato: ' + u.trim().slice(1));
+  return l;
+}
+
+// optional fields + persist + refresh picker (shared by URL and local-folder flows)
+function saveCustom(rec) {
+  if (!rec.model_id) throw new Error('nome mancante');
+  if (+$g('cm-vram').value) rec.vram_required_MB = +$g('cm-vram').value;
+  if (+$g('cm-ctx').value) rec.overrides = { context_window_size: +$g('cm-ctx').value };
+  if ($g('cm-f16').checked) rec.required_features = ['shader-f16'];
+  customModels = [...customModels.filter(m => m.model_id !== rec.model_id), rec];
+  localStorage.setItem('neo-custom', JSON.stringify(customModels));
+  $g('cm-dialog').close();
+  initModelPicker();
+}
+
+window.addCustom = function() {
+  try {
+    saveCustom({ model_id: $g('cm-id').value.trim(), model: absUrl($g('cm-model').value), model_lib: libUrl($g('cm-lib').value) });
+  } catch (err) { toast('Modello non valido: ' + err.message); }
+};
+
+window.addGguf = function() {
+  try {
+    const url = absUrl($g('cm-gguf').value);
+    const rec = { model_id: $g('cm-id').value.trim() || decodeURIComponent(url.split('/').pop().replace(/\.gguf$/i, '')), gguf: url };
+    if (+$g('cm-ctx').value) rec.n_ctx = +$g('cm-ctx').value;
+    saveCustom(rec);
+  } catch (err) { toast('GGUF non valido: ' + err.message); }
+};
+
+// ── Local model from disk ──
+// WebLLM only knows URLs, so the files are copied into the same browser Cache it uses for downloads,
+// under a fake https://leo.local/... base URL. It then finds them "already downloaded".
+const LOCAL_BASE = 'https://leo.local/';
+const CACHE_SCOPES = ['webllm/config', 'webllm/model', 'webllm/wasm'];
+
+window.importLocal = async function() {
+  const st = $g('cm-status');
+  try {
+    const files = [...$g('cm-folder').files];
+    const rel = f => f.webkitRelativePath.split('/').slice(1).join('/');
+    const usable = files.filter(f => !rel(f).split('/').some(seg => seg.startsWith('.')));
+    if (!usable.some(f => rel(f) === 'mlc-chat-config.json'))
+      throw new Error('scegli la cartella MLC (deve contenere mlc-chat-config.json)');
+    const id = $g('cm-id').value.trim() || files[0].webkitRelativePath.split('/')[0];
+    const base = `${LOCAL_BASE}${encodeURIComponent(id)}/resolve/main/`;
+    navigator.storage?.persist?.(); // ask the browser not to evict the copied weights
+
+    const wasm = $g('cm-wasm').files[0] || usable.find(f => f.name.endsWith('.wasm'));
+    const model = usable.filter(f => !f.name.endsWith('.wasm'));
+    const put = async (scope, url, f) => (await caches.open(scope)).put(url, new Response(f));
+    let n = 0;
+    for (const f of model) {
+      const r = rel(f);
+      await put('webllm/model', base + r, f);
+      if (r === 'mlc-chat-config.json') await put('webllm/config', base + r, f);
+      st.textContent = `Importo ${++n}/${model.length}: ${r}`;
+    }
+    let model_lib;
+    if (wasm) { model_lib = base + wasm.name; await put('webllm/wasm', model_lib, wasm); }
+    else {
+      if (!$g('cm-lib').value.trim()) throw new Error('serve un .wasm: nella cartella, nel campo file, oppure @modello del catalogo nel campo libreria');
+      model_lib = libUrl($g('cm-lib').value);
+    }
+
+    st.textContent = '';
+    saveCustom({ model_id: id, model: base, model_lib });
+  } catch (err) {
+    st.textContent = 'Errore: ' + (err?.message || err);
+  }
+};
+
+async function purgeLocal(m) { // delete the copied files of a local model
+  for (const scope of CACHE_SCOPES) {
+    const c = await caches.open(scope);
+    for (const r of await c.keys()) if (r.url.startsWith(m.model)) await c.delete(r);
+  }
+}
+
+// ── GGUF models (Minerva…) run with wllama = llama.cpp compiled to WebAssembly: a 2nd backend next to WebLLM ──
+const HF = (repo, file) => `https://huggingface.co/${repo}/resolve/main/${file}`;
+const MINERVA = [ // base (non-instruct) models by Sapienza NLP, GGUF quants by mradermacher (not gated)
+  { it: true, model_id: 'Minerva-350M-base-Q8_0', size: 374, gguf: HF('mradermacher/Minerva-350M-base-v1.0-GGUF', 'Minerva-350M-base-v1.0.Q8_0.gguf') },
+  { it: true, model_id: 'Minerva-1B-base-Q4_K_M', size: 617, gguf: HF('mradermacher/Minerva-1B-base-v1.0-GGUF', 'Minerva-1B-base-v1.0.Q4_K_M.gguf') },
+  { it: true, model_id: 'Minerva-3B-base-Q4_K_M', size: 1752, gguf: HF('mradermacher/Minerva-3B-base-v1.0-GGUF', 'Minerva-3B-base-v1.0.Q4_K_M.gguf') },
+];
+// inline SVG: flag emoji don't render on Windows (they show up as the letters "IT")
+const IT_FLAG = '<svg viewBox="0 0 3 2" width="18" height="12" style="vertical-align:-1px;margin-left:6px;border-radius:2px" role="img" aria-label="Italiano"><title>Modello nativo italiano</title><rect width="1" height="2" fill="#009246"/><rect x="1" width="1" height="2" fill="#fff"/><rect x="2" width="1" height="2" fill="#ce2b37"/><rect width="3" height="2" fill="none" stroke="rgba(0,0,0,.15)" stroke-width=".08"/></svg>';
+const ggufModels = () => [...MINERVA, ...customModels.filter(m => m.gguf)];
+
+// Base models have no chat template: plain "### Utente / ### Assistente" format, cut at the next "###".
+function basePrompt(msgs) {
+  const sys = msgs.find(m => m.role === 'system')?.content;
+  const turns = msgs.filter(m => m.role !== 'system')
+    .map(m => `### ${m.role === 'user' ? 'Utente' : 'Assistente'}:\n${m.content}\n`).join('\n');
+  return (sys ? sys + '\n\n' : '') + turns + '\n### Assistente:\n';
+}
+
+// Returns an object shaped like the WebLLM engine (chat.completions.create + interruptGenerate)
+async function loadGguf(rec, onProgress) {
+  const V = 'https://cdn.jsdelivr.net/npm/@wllama/wllama@3.6.1/esm/';
+  const { Wllama } = await import(V + 'index.js');
+  const w = new Wllama({ default: V + 'wasm/wllama.wasm' });
+  // ponytail: CPU only (n_gpu_layers 0); single thread unless the page is cross-origin isolated. Raise it to try wllama's WebGPU.
+  await w.loadModelFromUrl(rec.gguf, {
+    n_ctx: rec.n_ctx || 2048, n_gpu_layers: 0,
+    progressCallback: ({ loaded, total }) => onProgress(loaded / total),
+  });
+  let ctrl;
+  return {
+    interruptGenerate: () => ctrl?.abort(),
+    unload: () => w.exit(),
+    chat: { completions: { async create(req) {
+      ctrl = new AbortController();
+      const stream = await w.createCompletion({
+        prompt: basePrompt(req.messages), max_tokens: req.max_tokens, temperature: req.temperature,
+        top_p: req.top_p, stop: ['###'], stream: true, abortSignal: ctrl.signal,
+      });
+      return (async function* () {
+        let buf = '', sent = 0;
+        const out = t => ({ choices: [{ delta: { content: t } }] });
+        try {
+          for await (const c of stream) {
+            buf += c.choices[0]?.text ?? '';
+            const i = buf.indexOf('###');
+            const end = i >= 0 ? i : Math.max(sent, buf.length - 2); // hold back 2 chars: "###" may be split across chunks
+            if (end > sent) { yield out(buf.slice(sent, end)); sent = end; }
+            if (i >= 0) { ctrl.abort(); return; }
+          }
+        } catch (e) { if (!ctrl.signal.aborted) throw e; } // user pressed stop / we cut at ###
+        if (sent < buf.length) yield out(buf.slice(sent));
+      })();
+    } } },
+  };
+}
+
+async function detectF16() {
+  try {
+    if (!navigator.gpu) return false;
+    const a = await navigator.gpu.requestAdapter();
+    return a ? a.features.has('shader-f16') : false;
+  } catch { return false; }
+}
+
+async function initModelPicker() {
+  const f16 = await detectF16();
+  const precision = f16 ? 'q4f16' : 'q4f32';
+  const all = webllm.prebuiltAppConfig.model_list;
+
+  console.log(`📦 WebLLM: ${all.length} models, GPU f16: ${f16}`);
+  console.groupCollapsed('All models');
+  all.forEach(m => console.log(m.model_id));
+  console.groupEnd();
+
+  // Filter small, compatible models
+  const matched = [];
+  const seen = new Set();
+  for (const m of all) {
+    const id = m.model_id.toLowerCase();
+    if (!DESIRED.some(kw => id.includes(kw))) continue;
+    if (m.vram_required_MB && m.vram_required_MB > 4000) continue;
+    if (!id.includes(precision)) continue;
+    const base = m.model_id.replace(/q4f(16|32)_\d/g, 'Q');
+    if (seen.has(base)) continue;
+    seen.add(base);
+    matched.push(m);
+  }
+
+  // Fallback: if not enough, add any precision
+  if (matched.length < 2) {
+    for (const m of all) {
+      const id = m.model_id.toLowerCase();
+      if (!DESIRED.some(kw => id.includes(kw))) continue;
+      if (m.vram_required_MB && m.vram_required_MB > 4000) continue;
+      if (!matched.some(x => x.model_id === m.model_id)) matched.push(m);
+    }
+  }
+
+  // Best-quality-that-fits first (tiny models are a poor default), then by size
+  const PREF = ['qwen2.5-1.5b', 'llama-3.2-3b', 'gemma-2-2b', 'llama-3.2-1b', 'qwen2.5-3b'];
+  const rank = m => { const i = PREF.findIndex(k => m.model_id.toLowerCase().includes(k)); return i < 0 ? 99 : i; };
+  matched.sort((a, b) => rank(a) - rank(b) || (a.vram_required_MB || 500) - (b.vram_required_MB || 500));
+  matched.unshift(...customModels.filter(m => !m.gguf)); // yours first → preselected
+
+  console.log(`✅ ${matched.length} compatible models`);
+  matched.forEach(m => console.log(`  ${m.model_id}`));
+
+  // Render picker
+  const $picker = $('model-picker');
+  $picker.innerHTML = '';
+
+  if (matched.length === 0) {
+    $picker.innerHTML = '<div style="color:var(--accent);font-size:13px;padding:16px;">Nessun modello compatibile trovato nel catalogo.</div>';
+    return;
+  }
+
+  let selectedId = null;
+  matched.forEach((m, i) => {
+    const label = m.model_id.replace(/-MLC$/i,'').replace(/-q4f\d+_\d+/i,'').replace(/-[Ii]nstruct/,'');
+    const prec = m.model_id.includes('q4f16') ? 'f16' : 'f32';
+    const custom = customModels.includes(m);
+    const vram = [custom && (m.model.startsWith(LOCAL_BASE) ? '★ locale' : '★ personalizzato'), m.vram_required_MB && `~${m.vram_required_MB} MB`].filter(Boolean).join(' · ');
+
+    const btn = document.createElement('button');
+    btn.className = 'model-option';
+    btn.dataset.modelId = m.model_id;
+    btn.innerHTML = `
+      <div class="model-radio"></div>
+      <div class="model-info">
+        <div class="model-name">${label}</div>
+        <div class="model-desc">${[vram, prec].filter(Boolean).join(' · ')}</div>
+      </div>`;
+
+    btn.onclick = () => {
+      document.querySelectorAll('.model-option').forEach(el => el.classList.remove('selected'));
+      btn.classList.add('selected');
+      selectedId = m.model_id;
+      $btnStart.disabled = false;
+      window._selectedModelId = selectedId;
+    };
+
+    if (custom) btn.oncontextmenu = async e => { // right-click → remove
+      e.preventDefault();
+      if (!await ask(`Rimuovere il modello "${m.model_id}" dalla lista?`, { ok: 'Rimuovi' })) return;
+      customModels = customModels.filter(x => x !== m);
+      localStorage.setItem('neo-custom', JSON.stringify(customModels));
+      if (m.model.startsWith(LOCAL_BASE)) purgeLocal(m);
+      initModelPicker();
+    };
+
+    // Auto-select first model
+    if (i === 0) {
+      btn.classList.add('selected');
+      selectedId = m.model_id;
+      window._selectedModelId = selectedId;
+      $btnStart.disabled = false;
+    }
+
+    $picker.appendChild(btn);
+  });
+
+  // GGUF section (wllama)
+  const grp = document.createElement('div');
+  grp.style.cssText = 'font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--ash);padding:10px 4px 0';
+  grp.textContent = 'GGUF · wllama (sperimentale, modelli base)';
+  $picker.appendChild(grp);
+  ggufModels().forEach(m => {
+    const btn = document.createElement('button');
+    btn.className = 'model-option';
+    btn.dataset.modelId = m.model_id;
+    btn.innerHTML = `<div class="model-radio"></div><div class="model-info"><div class="model-name">${escHtml(m.model_id)}${m.it ? IT_FLAG : ''}</div>
+      <div class="model-desc">GGUF · CPU${m.size ? ` · ~${m.size} MB` : ''}</div></div>`;
+    btn.onclick = () => {
+      document.querySelectorAll('.model-option').forEach(el => el.classList.remove('selected'));
+      btn.classList.add('selected');
+      window._selectedModelId = m.model_id;
+      $btnStart.disabled = false;
+    };
+    if (customModels.includes(m)) btn.oncontextmenu = async e => { // right-click → remove your own GGUF
+      e.preventDefault();
+      if (!await ask(`Rimuovere "${m.model_id}" dalla lista?`, { ok: 'Rimuovi' })) return;
+      customModels = customModels.filter(x => x !== m);
+      localStorage.setItem('neo-custom', JSON.stringify(customModels));
+      initModelPicker();
+    };
+    $picker.appendChild(btn);
+  });
+}
+
+initModelPicker();
+
+// ── Load model ────────────────────────────
+window.startModel = async function() {
+  const modelId = window._selectedModelId;
+  if (!modelId) return;
+
+  $btnStart.disabled = true;
+  $btnStart.textContent = 'Caricamento…';
+  $progressEl.classList.add('active');
+  $progressFill.style.width = '0%';
+  $('btn-back').style.display = 'none';
+  await unloadEngine();
+
+  const gg = ggufModels().find(m => m.model_id === modelId);
+  if (gg) return startGguf(gg);
+
+  // Try primary, then opposite precision as fallback
+  const toTry = [modelId];
+  const alt = modelId.includes('q4f16')
+    ? modelId.replace('q4f16', 'q4f32')
+    : modelId.replace('q4f32', 'q4f16');
+  if (allModels().some(m => m.model_id === alt)) {
+    toTry.push(alt);
+  }
+
+  for (const tryId of toTry) {
+    try {
+      $progressText.textContent = tryId === modelId ? 'Download modello…' : 'Provo variante alternativa…';
+      // Engine runs in a worker (blob module) so the UI never freezes
+      worker?.terminate();
+      worker = new Worker(URL.createObjectURL(new Blob([
+        `import {WebWorkerMLCEngineHandler} from 'https://esm.run/@mlc-ai/web-llm';
+         const h = new WebWorkerMLCEngineHandler(); self.onmessage = m => h.onmessage(m);`
+      ], { type: 'text/javascript' })), { type: 'module' });
+      engine = await webllm.CreateWebWorkerMLCEngine(worker, tryId, {
+        appConfig: { ...webllm.prebuiltAppConfig, model_list: allModels() },
+        initProgressCallback: (r) => {
+          const pct = Math.round(r.progress * 100);
+          $progressFill.style.width = pct + '%';
+          const t = r.text || `${pct}%`;
+          $progressText.textContent = t.length > 60 ? t.slice(0, 60) + '…' : t;
+        }
+      });
+      currentModelId = tryId;
+      break;
+    } catch (err) {
+      console.error(`❌ ${tryId}:`, err?.message || err);
+      engine = null;
+      if (tryId === toTry[toTry.length - 1]) {
+        $progressText.textContent = 'Errore: ' + (err?.message || '').slice(0, 80);
+        $btnStart.textContent = 'Inizia';
+        $btnStart.disabled = false;
+        return;
+      }
+    }
+  }
+
+  // Success → switch to chat
+  enterChat(currentModelId.replace(/-MLC$/i, '').replace(/-q4f\d+_\d+/i, '').replace(/-[Ii]nstruct/, ''));
+};
+
+// Free the current model (GPU/CPU memory) before loading another one
+async function unloadEngine() {
+  try { await engine?.unload?.(); } catch {}
+  engine = null;
+  worker?.terminate(); worker = null;
+  $statusDot.className = 'dot off';
+  $statusLabel.textContent = 'Nessun modello';
+  $('status-foot').classList.remove('clickable');
+}
+
+// Switch model without losing the conversations: back to the picker, chats stay in the sidebar
+window.changeModel = function() {
+  if (!engine) return;
+  if (isGenerating) { toast('Attendi la fine della risposta (o premi ■) prima di cambiare modello.'); return; }
+  $chatView.classList.remove('active');
+  $onboard.style.display = '';
+  $progressEl.classList.remove('active');
+  $btnStart.textContent = 'Inizia';
+  $btnStart.disabled = false;
+  $('btn-back').style.display = '';
+  document.querySelectorAll('.model-option').forEach(el => el.classList.toggle('selected', el.dataset.modelId === currentModelId));
+  window._selectedModelId = currentModelId;
+  $('sidebar').classList.remove('open');
+  $('sidebar-overlay').classList.remove('active');
+};
+
+window.backToChat = function() {
+  if (!engine) return;
+  $onboard.style.display = 'none';
+  $chatView.classList.add('active');
+  $chatInput.focus();
+};
+
+async function startGguf(rec) {
+  try {
+    $progressText.textContent = 'Carico wllama…';
+    engine = await loadGguf(rec, p => {
+      $progressFill.style.width = Math.round(p * 100) + '%';
+      $progressText.textContent = `Download ${Math.round(p * 100)}%`;
+    });
+    currentModelId = rec.model_id;
+  } catch (err) {
+    console.error('❌ ' + rec.model_id, err);
+    engine = null;
+    $progressText.textContent = 'Errore: ' + String(err?.message || err).slice(0, 80);
+    $btnStart.textContent = 'Inizia';
+    $btnStart.disabled = false;
+    return;
+  }
+  enterChat(rec.model_id);
+}
+
+function enterChat(name) {
+  $statusDot.className = 'dot on';
+  $statusLabel.textContent = name;
+  $onboard.style.display = 'none';
+  $chatView.classList.add('active');
+  $chatInput.focus();
+  $('status-foot').classList.add('clickable');
+  if (getActiveConv()) renderMessages();          // switched model mid-chat: keep the conversation
+  else if (conversations.length) switchConv(conversations[0].id);
+  else newConversation();
+}
+
+// ── Conversations ─────────────────────────
+window.newConversation = function() {
+  const conv = {
+    id: Date.now().toString(36),
+    title: 'Nuova chat',
+    agentId: curAgentId,
+    messages: [],
+  };
+  conversations.unshift(conv);
+  activeConvId = conv.id;
+  renderConvList();
+  $chatInner.innerHTML = '';
+};
+
+function getActiveConv() {
+  return conversations.find(c => c.id === activeConvId);
+}
+
+function renderConvList() {
+  saveConvs();
+  $convEmpty.style.display = conversations.length ? 'none' : 'block';
+  $convList.querySelectorAll('.conv-row').forEach(el => el.remove());
+
+  conversations.forEach(c => {
+    const row = document.createElement('div');
+    row.className = 'conv-row';
+    const btn = document.createElement('button');
+    btn.className = 'conv-item' + (c.id === activeConvId ? ' active' : '');
+    btn.innerHTML = `<span class="conv-dot"></span><span class="conv-label">${escHtml(c.title)}${c.topic ? `<small>${escHtml(c.topic)}</small>` : ''}</span>`;
+    btn.onclick = () => switchConv(c.id);
+    const del = document.createElement('button');
+    del.className = 'conv-del';
+    del.textContent = '✕';
+    del.title = 'Elimina chat';
+    del.setAttribute('aria-label', 'Elimina chat');
+    del.onclick = () => deleteConv(c.id);
+    row.append(btn, del);
+    $convList.insertBefore(row, $convEmpty);
+  });
+}
+
+async function deleteConv(id) {
+  const c = conversations.find(x => x.id === id);
+  if (!c || (isGenerating && id === activeConvId)) return; // don't pull the chat out from under a running reply
+  if (!await ask(`Eliminare la chat "${c.title}"?`)) return;
+  conversations = conversations.filter(x => x.id !== id);
+  if (id === activeConvId) {
+    activeConvId = null;
+    if (conversations.length) switchConv(conversations[0].id);
+    else if (engine) newConversation();
+    else { $chatInner.innerHTML = ''; renderConvList(); }
+  } else renderConvList();
+  saveConvs(); // renderConvList saves too, but an emptied list must be persisted as well
+}
+
+function switchConv(id) {
+  activeConvId = id;
+  curAgentId = getActiveConv().agentId;
+  renderAgents();
+  renderConvList();
+  renderMessages();
+  // Close sidebar on mobile
+  if (window.innerWidth <= 720) {
+    $('sidebar').classList.remove('open');
+    $('sidebar-overlay').classList.remove('active');
+  }
+}
+
+function renderMessages() {
+  const conv = getActiveConv();
+  $chatInner.innerHTML = '';
+  if (!conv) return;
+  conv.messages.forEach(m => {
+    if (m.role === 'user' || m.role === 'assistant') {
+      appendMsgEl(m.role, m.shown ?? m.content, m.opLabel);
+    }
+  });
+  scrollBottom();
+}
+
+// ── Chat ──────────────────────────────────
+window.sendMessage = async function() {
+  // files attached with no question → default request
+  const text = $chatInput.value.trim() || (pending.some(f => f.text) ? 'Riassumi il contenuto.' : '');
+  if (!text || isGenerating || !engine) return;
+
+  const conv = getActiveConv();
+  if (!conv) return;
+
+  // Compose context blocks: attached files + web sources
+  const blocks = [], labels = [];
+  let shown = text;
+  const files = pending.filter(f => f.text);
+  if (files.length) {
+    const per = Math.floor(5000 / files.length);
+    blocks.push(files.map(f => `File "${f.name}":\n${pickChunks(f.text, text, per)}`).join('\n\n'));
+    shown += '\n\n📎 ' + files.map(f => f.name).join(', ');
+    labels.push('📎 File');
+  }
+  if (webOn) {
+    isGenerating = true; // blocks double-send while searching
+    $btnSend.disabled = true;
+    try {
+      const w = await webContext(text);
+      if (w) { blocks.push(w.block); shown += '\n\nFonti:\n' + w.list; labels.push('🌐 Web'); }
+    } catch (err) {
+      appendMsgEl('assistant', 'Ricerca web non eseguita (query non inviata): ' + (err?.message || err));
+      return;
+    } finally {
+      isGenerating = false;
+      $btnSend.disabled = false;
+    }
+  }
+  const msg = blocks.length
+    ? { role: 'user', shown, opLabel: labels.join(' · '),
+        content: `${blocks.join('\n\n')}\n\n---\nDomanda: ${text}\nRispondi usando solo il materiale sopra${webOn ? ' e cita le fonti web con [n]' : ''}. Se non basta, dillo.` }
+    : { role: 'user', content: text };
+  conv.messages.push(msg);
+  appendMsgEl('user', msg.shown ?? text, msg.opLabel);
+  pending = [];
+  renderChips();
+  tagConv(conv, text);
+
+  // Auto-title from first message
+  if (conv.title === 'Nuova chat') {
+    conv.title = text.slice(0, 40) + (text.length > 40 ? '…' : '');
+    renderConvList();
+  }
+
+  $chatInput.value = '';
+  autoResize();
+  await generate(conv);
+};
+
+window.runOp = function(opKey) {
+  const text = $chatInput.value.trim();
+  if (!text || isGenerating || !engine) return;
+
+  $cmdPopover.classList.remove('open');
+
+  const conv = getActiveConv();
+  if (!conv) return;
+
+  const [label, action, param, , , maxTok] = OPS[opKey];
+  const prompt = buildPrompt(action, param, text);
+
+  conv.messages.push({ role: 'user', content: prompt, shown: text, opLabel: label });
+  appendMsgEl('user', text, label);
+
+  if (conv.title === 'Nuova chat') {
+    conv.title = label + ': ' + text.slice(0, 30);
+    renderConvList();
+  }
+
+  tagConv(conv, text);
+  $chatInput.value = '';
+  autoResize();
+  generate(conv, { maxTok });
+};
+
+// op = text operation: fixed training SYSTEM + only the op prompt, low temperature, per-action token cap
+async function generate(conv, op = null) {
+  const stateless = !!op;
+  // Stop must work at any moment: before the first token (prefill / queued behind the previous reply) too.
+  // So the UI does not wait for the engine: every await below is raced against stopP.
+  const STOP = Symbol('stop');
+  let stopped = false;
+  const stopP = new Promise(res => { currentStop = () => { stopped = true; res(STOP); }; });
+  genId++;
+  isGenerating = true;
+  $btnSend.style.display = 'none';
+  $btnStop.style.display = 'flex';
+  $chatInput.disabled = true;
+
+  const msgEl = appendMsgEl('assistant', '', null, true);
+  const bodyEl = msgEl.querySelector('.msg-body');
+
+  try {
+    // Build messages for API (strip opLabel)
+    const sys = stateless ? SYSTEM : getAgent(conv.agentId).prompt.trim();
+    const hist = stateless ? conv.messages.slice(-1) : trimHistory(conv.messages);
+    const apiMsgs = [
+      ...(sys ? [{ role: 'system', content: sys }] : []),
+      ...hist.map(m => ({ role: m.role, content: m.content })),
+    ];
+
+    const started = engine.chat.completions.create({
+      messages: apiMsgs,
+      stream: true,
+      temperature: stateless ? 0.3 : 0.5,
+      top_p: 0.9,
+      frequency_penalty: 0.3,
+      max_tokens: op ? op.maxTok : 512,
+    });
+    started.catch(() => {}); // if stop wins the race, a later rejection must not surface
+    const reply = await Promise.race([started, stopP]);
+
+    let full = '';
+    if (reply !== STOP) {
+      const it = reply[Symbol.asyncIterator]();
+      for (;;) {
+        const r = await Promise.race([it.next(), stopP]);
+        if (r === STOP || r.done) break;
+        full += r.value.choices[0]?.delta?.content || '';
+        bodyEl.innerHTML = fmtMsg(full);
+        scrollBottom();
+      }
+      if (stopped) Promise.resolve(it.return?.()).catch(() => {});
+    }
+
+    if (!full && stopped) {
+      msgEl.remove();                    // stopped before any text: nothing to keep
+    } else {
+      conv.messages.push({ role: 'assistant', content: full });
+      const t = msgEl.querySelector('.typing');
+      if (t) t.remove();
+      bodyEl.innerHTML = fmtMsg(full);
+      addCopyBtn(msgEl, full);
+    }
+
+  } catch (err) {
+    bodyEl.textContent = 'Errore: ' + (err?.message || err);
+  } finally {
+    currentStop = null;
+    isGenerating = false;
+    saveConvs();
+    $btnStop.style.display = 'none';
+    $btnSend.style.display = '';
+    $chatInput.disabled = false;
+    $chatInput.focus();
+  }
+}
+
+window.stopGen = function() {
+  currentStop?.();                       // UI is freed right away
+  // WebLLM drops an interrupt that arrives before decoding starts, so repeat it for a while.
+  // It stops as soon as a newer generation begins, so it can never cancel the next reply.
+  const gid = genId;
+  let n = 0;
+  engine?.interruptGenerate?.();
+  const t = setInterval(() => {
+    if (genId !== gid || ++n > 20) return clearInterval(t);
+    engine?.interruptGenerate?.();
+  }, 500);
+};
+
+// ── DOM helpers ───────────────────────────
+function appendMsgEl(role, text, opLabel, streaming) {
+  const el = document.createElement('div');
+  el.className = `msg ${role}`;
+
+  let html = `<div class="msg-role">${role === 'user' ? 'Tu' : 'Neo'}</div>`;
+  if (opLabel) html += `<div class="msg-op-badge">${escHtml(opLabel)}</div>`;
+  html += '<div class="msg-body">';
+  if (streaming) html += '<div class="typing"><span></span><span></span><span></span></div>';
+  else html += fmtMsg(text);
+  html += '</div>';
+
+  el.innerHTML = html;
+  $chatInner.appendChild(el);
+
+  if (!streaming && role === 'user') addCopyBtn(el, text);
+
+  scrollBottom();
+  return el;
+}
+
+function addCopyBtn(msgEl, text) {
+  const div = document.createElement('div');
+  div.className = 'msg-actions';
+  const btn = document.createElement('button');
+  btn.className = 'btn-copy-msg';
+  btn.textContent = 'Copia';
+  btn.onclick = () => {
+    navigator.clipboard.writeText(text);
+    btn.textContent = 'Copiato';
+    setTimeout(() => btn.textContent = 'Copia', 1200);
+  };
+  div.appendChild(btn);
+  msgEl.appendChild(div);
+}
+
+function fmtMsg(t) {
+  if (!t) return '';
+  let h = t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  h = h.replace(/```(\w*)\n?([\s\S]*?)```/g, '<pre><code>$2</code></pre>');
+  h = h.replace(/`([^`]+)`/g, '<code>$1</code>');
+  h = h.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  h = h.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  h = h.replace(/\n\n/g, '</p><p>');
+  h = h.replace(/\n/g, '<br>');
+  return '<p>' + h + '</p>';
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function scrollBottom() {
+  requestAnimationFrame(() => {
+    const el = $('chat-messages');
+    el.scrollTop = el.scrollHeight;
+  });
+}
+
+// ── Input ─────────────────────────────────
+$chatInput.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    if (!isGenerating && engine) sendMessage();
+  }
+});
+
+$chatInput.addEventListener('input', autoResize);
+
+function autoResize() {
+  $chatInput.style.height = 'auto';
+  $chatInput.style.height = Math.min($chatInput.scrollHeight, 140) + 'px';
+}
+
+// ── Commands popover ──────────────────────
+$cmdPopover.innerHTML = '<div class="cmd-popover-title">Operazioni sul testo</div>' + Object.entries(OPS).map(([k, o]) =>
+  `<button class="cmd-item" onclick="runOp('${k}')"><span class="cmd-icon">${o[3]}</span><div><div class="cmd-label">${o[0]}</div><div class="cmd-desc">${o[4]}</div></div></button>`).join('');
+window.toggleCommands = function() {
+  $cmdPopover.classList.toggle('open');
+};
+
+// Close popover on outside click
+document.addEventListener('click', e => {
+  if (!e.target.closest('.cmd-popover') && !e.target.closest('.cmd-trigger')) {
+    $cmdPopover.classList.remove('open');
+  }
+});
+
+// ── Sidebar toggle ────────────────────────
+window.toggleSidebar = function() {
+  $('sidebar').classList.toggle('open');
+  $('sidebar-overlay').classList.toggle('active');
+};
+
+$('sidebar-overlay').addEventListener('click', () => {
+  $('sidebar').classList.remove('open');
+  $('sidebar-overlay').classList.remove('active');
+});
+
+// ── Init ──────────────────────────────────
+renderAgents();
+renderConvList();
+console.log('%cNeo', 'font-size:20px;font-weight:600;color:#1a1814;');
+console.log('%cAI nel browser · WebGPU + WebLLM', 'color:#9e9a8f;');
+</script>
+
+</body>
+</html>
