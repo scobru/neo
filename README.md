@@ -67,6 +67,10 @@ Dalla schermata di scelta modello, **+ Modello personalizzato**:
 - **MLC community:** una build WebGPU di MiniCPM5-2B di un autore terzo (non OpenBMB) è in lista come "community". Il suo `.wasm` gira nel tuo browser: usala solo se ti fidi.
 - **Senza WebGPU** (accelerazione hardware spenta, driver, VM): i modelli WebLLM non partono, NEO lo segnala e preseleziona un modello GGUF su CPU.
 
+### Ricerca web (🌐)
+
+Senza chiave usa **Wikipedia** (italiana). Con una chiave gratuita di **[Serper](https://serper.dev)** (risultati Google, 2500 ricerche gratis) usa Google: si inserisce al primo clic su 🌐, e si cambia con **Maiusc+clic**. La query viene prima ripulita dai dati personali (Redact, in locale). Altri provider (Tavily, Brave, Exa) non accettano chiamate dal browser e DuckDuckGo blocca i server Vercel.
+
 ### Memoria e spazio
 
 - **⏏ Espelli** (piè della sidebar): scarica il modello da RAM/GPU e torna alla scelta; le chat restano.
