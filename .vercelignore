@@ -1,0 +1,6 @@
+dataset/
+notebook/
+.claude/
+start.bat
+MODEL.md
+.cache/

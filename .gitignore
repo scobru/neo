@@ -2,3 +2,6 @@
 __pycache__/
 nul
 *.pyc
+
+.vercel
+.serena/
