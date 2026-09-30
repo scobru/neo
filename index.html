@@ -1464,25 +1464,39 @@ function chatmlPrompt(msgs, noThink, bos = '') {
 async function loadGguf(rec, onProgress) {
   const V = 'https://cdn.jsdelivr.net/npm/@wllama/wllama@3.6.1/esm/';
   const { Wllama } = await import(V + 'index.js');
-  const w = new Wllama({ default: V + 'wasm/wllama.wasm' });
+  let w;
   // ponytail: CPU only (n_gpu_layers 0); single thread unless the page is cross-origin isolated. Raise it to try wllama's WebGPU.
-  await w.loadModelFromUrl(rec.gguf, {
-    n_ctx: rec.n_ctx || 2048, n_gpu_layers: 0,
-    progressCallback: ({ loaded, total }) => onProgress(loaded / total),
-  });
+  const init = async prog => {
+    w = new Wllama({ default: V + 'wasm/wllama.wasm' });
+    await w.loadModelFromUrl(rec.gguf, { n_ctx: rec.n_ctx || 2048, n_gpu_layers: 0, progressCallback: prog });
+  };
+  await init(({ loaded, total }) => onProgress(loaded / total));
   const chatml = rec.format === 'chatml';
   const stops = chatml ? ['<|im_end|>', '</s>'] : ['###'];
   const hold = Math.max(...stops.map(x => x.length)) - 1; // a stop marker may be split across chunks
-  let ctrl;
+  let ctrl, dirty = false;
+  // wllama sometimes ends up with a desynchronised worker ("Invalid typed array length" = its "GLUE" header read as a
+  // length). The model file is cached, so rebuilding the instance is cheap: do it once and retry.
+  const reload = async () => { try { await w.exit(); } catch {} await init(() => {}); dirty = false; };
   return {
     interruptGenerate: () => ctrl?.abort(),
     unload: () => w.exit(),
     chat: { completions: { async create(req) {
       ctrl = new AbortController();
-      const stream = await w.createCompletion({
+      const start = () => w.createCompletion({
         prompt: chatml ? chatmlPrompt(req.messages, rec.noThink, rec.bos) : basePrompt(req.messages), max_tokens: req.max_tokens,
         temperature: req.temperature, top_p: req.top_p, stop: stops, stream: true, abortSignal: ctrl.signal,
       });
+      let stream;
+      try {
+        if (dirty) await reload();
+        stream = await start();
+      } catch (e) {
+        if (ctrl.signal.aborted) throw e;
+        console.warn('wllama failed, rebuilding the instance and retrying once:', e);
+        await reload();
+        stream = await start();
+      }
       return (async function* () {
         let buf = '', sent = 0;
         const out = t => ({ choices: [{ delta: { content: t } }] });
@@ -1495,7 +1509,7 @@ async function loadGguf(rec, onProgress) {
             if (end > sent) { yield out(buf.slice(sent, end)); sent = end; }
             if (i >= 0) { ctrl.abort(); return; }
           }
-        } catch (e) { if (!ctrl.signal.aborted) throw e; } // user pressed stop / we cut at ###
+        } catch (e) { if (!ctrl.signal.aborted) { dirty = true; throw e; } } // aborted = user stop / we cut at the marker
         if (sent < buf.length) yield out(buf.slice(sent));
       })();
     } } },
@@ -1620,7 +1634,7 @@ async function initModelPicker() {
     if (m.format === 'chatml') btn.dataset.chat = '1';
     btn.dataset.modelId = m.model_id;
     btn.innerHTML = `<div class="model-radio"></div><div class="model-info"><div class="model-name">${escHtml(m.model_id)}${m.it ? IT_FLAG : ''}</div>
-      <div class="model-desc">GGUF · CPU${m.size ? ` · ~${m.size} MB` : ''}${m.note ? ` · ${escHtml(m.note)}` : ''}</div></div>`;
+      <div class="model-desc">GGUF · CPU${m.size ? ` · ~${m.size} MB` : ''}${m.size > 1000 ? ' · ⚠ rischia di non entrare in memoria' : ''}${m.note ? ` · ${escHtml(m.note)}` : ''}</div></div>`;
     btn.onclick = () => {
       document.querySelectorAll('.model-option').forEach(el => el.classList.remove('selected'));
       btn.classList.add('selected');
@@ -2012,7 +2026,10 @@ async function generate(conv, op = null) {
     }
 
   } catch (err) {
-    bodyEl.textContent = 'Errore: ' + (err?.message || err);
+    const m = String(err?.message || err);
+    bodyEl.textContent = /typed array|out of memory|memory access|allocation/i.test(m)
+      ? 'Errore: memoria WebAssembly esaurita o motore in stato errato (' + m + '). Il modello GGUF potrebbe essere troppo grande per il browser (oltre ~1 GB è rischioso): prova un modello più piccolo, per esempio MiniCPM5-1B o Minerva-350M.'
+      : 'Errore: ' + m;
   } finally {
     currentStop = null;
     isGenerating = false;
