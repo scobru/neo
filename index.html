@@ -1516,7 +1516,7 @@ async function initModelPicker() {
   const precision = f16 ? 'q4f16' : 'q4f32';
   const all = webllm.prebuiltAppConfig.model_list;
 
-  console.log(`📦 WebLLM: ${all.length} models, GPU f16: ${f16}`);
+  console.log(`📦 WebLLM: ${all.length} models, GPU adapter: ${gpuOk}, f16: ${f16}`);
   console.groupCollapsed('All models');
   all.forEach(m => console.log(m.model_id));
   console.groupEnd();
@@ -1679,13 +1679,7 @@ window.startModel = async function() {
   for (const tryId of toTry) {
     try {
       $progressText.textContent = tryId === modelId ? 'Download modello…' : 'Provo variante alternativa…';
-      // Engine runs in a worker (blob module) so the UI never freezes
-      worker?.terminate();
-      worker = new Worker(URL.createObjectURL(new Blob([
-        `import {WebWorkerMLCEngineHandler} from 'https://esm.run/@mlc-ai/web-llm';
-         const h = new WebWorkerMLCEngineHandler(); self.onmessage = m => h.onmessage(m);`
-      ], { type: 'text/javascript' })), { type: 'module' });
-      engine = await webllm.CreateWebWorkerMLCEngine(worker, tryId, {
+      const cfg = {
         appConfig: { ...webllm.prebuiltAppConfig, model_list: allModels() },
         initProgressCallback: (r) => {
           const pct = Math.round(r.progress * 100);
@@ -1693,7 +1687,22 @@ window.startModel = async function() {
           const t = r.text || `${pct}%`;
           $progressText.textContent = t.length > 60 ? t.slice(0, 60) + '…' : t;
         }
-      });
+      };
+      try {
+        // Engine runs in a worker (blob module) so the UI never freezes
+        worker?.terminate();
+        worker = new Worker(URL.createObjectURL(new Blob([
+          `import {WebWorkerMLCEngineHandler} from 'https://esm.run/@mlc-ai/web-llm';
+           const h = new WebWorkerMLCEngineHandler(); self.onmessage = m => h.onmessage(m);`
+        ], { type: 'text/javascript' })), { type: 'module' });
+        engine = await webllm.CreateWebWorkerMLCEngine(worker, tryId, cfg);
+      } catch (e) {
+        // Some browsers/configurations give WebGPU to the page but not to a worker: retry on the main thread
+        if (!/compatible GPU/i.test(e?.message || '')) throw e;
+        console.warn('WebGPU not available in the worker, retrying on the main thread');
+        worker?.terminate(); worker = null;
+        engine = await webllm.CreateMLCEngine(tryId, cfg);
+      }
       currentModelId = tryId;
       break;
     } catch (err) {
