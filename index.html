@@ -239,7 +239,17 @@ body {
 .sidebar-foot.clickable { cursor: pointer; }
 .sidebar-foot.clickable:hover { background: var(--sand); }
 .sidebar-foot .swap { margin-left: auto; display: none; }
-.sidebar-foot.clickable .swap { display: inline; }
+.sidebar-foot .foot-btn { border: none; background: none; color: var(--ash); cursor: pointer; font-size: 14px; padding: 2px 6px; border-radius: 6px; }
+.sidebar-foot .foot-btn:hover { background: var(--stone); color: var(--accent); }
+.sidebar-foot .eject { display: none; }
+.sidebar-foot.clickable .eject { display: inline; }
+.sidebar-foot:not(.clickable) .storage { margin-left: auto; }
+.st-row { display: flex; align-items: center; gap: 8px; padding: 7px 0; border-bottom: 1px solid var(--sand); font-size: 13px; }
+.st-row .nm { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.st-row .sz { color: var(--ash); font-size: 12px; }
+.st-row button { border: none; background: none; color: var(--ash); cursor: pointer; padding: 2px 6px; border-radius: 6px; }
+.st-row button:hover { color: var(--accent); background: var(--sand); }
+.sidebar-foot.clickable .swap { display: inline; margin-right: 2px; }
 .sidebar-foot .dot.off { background: var(--stone); }
 .sidebar-foot .dot.on { background: var(--green); }
 
@@ -850,6 +860,17 @@ html.dark .msg-body pre {
   </div>
 </dialog>
 
+<dialog class="ag-dialog" id="st-dialog">
+  <h3 style="font-family:var(--serif);font-size:18px;margin-bottom:4px">Spazio e memoria</h3>
+  <div id="st-summary" style="font-size:12px;color:var(--ash);margin-bottom:8px"></div>
+  <div id="st-list" style="max-height:42vh;overflow:auto"></div>
+  <div class="ag-actions">
+    <button id="st-eject" onclick="ejectModel()">⏏ Espelli modello</button>
+    <button class="danger" onclick="clearAllStorage()">Elimina tutto</button>
+    <button onclick="this.closest('dialog').close()">Chiudi</button>
+  </div>
+</dialog>
+
 <dialog class="ag-dialog" id="ask-dialog">
   <p id="ask-msg" style="font-size:14px;line-height:1.55;white-space:pre-line"></p>
   <input id="ask-input" style="display:none;margin-top:10px">
@@ -910,6 +931,8 @@ html.dark .msg-body pre {
       <span class="dot off" id="status-dot"></span>
       <span id="status-label">Nessun modello</span>
       <span class="swap">⇄ Cambia</span>
+      <button class="foot-btn eject" title="Espelli il modello e libera la memoria" aria-label="Espelli modello" onclick="event.stopPropagation(); ejectModel()">⏏</button>
+      <button class="foot-btn storage" title="Spazio e memoria" aria-label="Spazio e memoria" onclick="event.stopPropagation(); openStorage()">🧹</button>
     </div>
   </aside>
 
@@ -929,6 +952,7 @@ html.dark .msg-body pre {
         </div>
 
         <button class="btn-new" id="btn-back" style="display:none;width:auto;padding:0 12px;margin:0 auto 10px;font-size:13px;" onclick="backToChat()">← Torna alla chat</button>
+        <button class="btn-new" style="width:auto;padding:0 12px;margin:0 auto 10px;font-size:13px;" onclick="openStorage()">🧹 Spazio e memoria</button>
         <button class="btn-new" style="width:auto;padding:0 12px;margin:0 auto 16px;font-size:13px;" onclick="document.getElementById('cm-dialog').showModal()">+ Modello personalizzato</button>
         <button class="btn-start" id="btn-start" onclick="startModel()" disabled>Inizia</button>
 
@@ -1769,6 +1793,101 @@ window.backToChat = function() {
   $onboard.style.display = 'none';
   $chatView.classList.add('active');
   $chatInput.focus();
+};
+
+// ── Eject the model / manage downloaded data ──
+const fmtSize = b => b >= 1e9 ? (b / 1e9).toFixed(1) + ' GB' : Math.round(b / 1e6) + ' MB';
+
+// Free RAM/VRAM now (engine + worker are dropped) and go back to the model picker; chats stay.
+window.ejectModel = async function() {
+  if (isGenerating) { toast('Attendi la fine della risposta (o premi ■) prima di espellere il modello.'); return; }
+  if (!engine) { toast('Nessun modello caricato.'); return; }
+  await unloadEngine();
+  $chatView.classList.remove('active');
+  $onboard.style.display = '';
+  $progressEl.classList.remove('active');
+  $btnStart.textContent = 'Inizia';
+  $btnStart.disabled = false;
+  $('btn-back').style.display = 'none';
+  $('st-dialog').close();
+  toast('Modello espulso: memoria liberata.');
+};
+
+// Everything the browser keeps on disk for models: CacheStorage (WebLLM + imported folders) and OPFS (wllama GGUF)
+async function storageItems() {
+  const items = [];
+  const groups = new Map();
+  for (const scope of CACHE_SCOPES) {
+    if (!(await caches.has(scope))) continue;
+    const c = await caches.open(scope);
+    for (const req of await c.keys()) {
+      const key = req.url.includes('/resolve/') ? req.url.split('/resolve/')[0] : req.url;
+      const g = groups.get(key) ?? { size: 0, reqs: [] };
+      const len = +((await c.match(req))?.headers.get('content-length') || 0);
+      g.size += len; g.reqs.push([scope, req]); groups.set(key, g);
+    }
+  }
+  for (const [key, g] of groups) {
+    const label = key.startsWith(LOCAL_BASE) ? 'locale: ' + decodeURIComponent(key.slice(LOCAL_BASE.length))
+      : key.replace('https://huggingface.co/', '').replace(/^https:\/\/raw\.githubusercontent\.com\/.*\//, 'libreria ');
+    items.push({ label, size: g.size, del: async () => {
+      for (const [scope, req] of g.reqs) await (await caches.open(scope)).delete(req);
+      if (key.startsWith(LOCAL_BASE)) { // an imported folder is gone: drop its entry from the model list too
+        customModels = customModels.filter(m => !m.model?.startsWith(key));
+        localStorage.setItem('neo-custom', JSON.stringify(customModels));
+      }
+    } });
+  }
+  try {
+    const d = await (await navigator.storage.getDirectory()).getDirectoryHandle('cache');
+    const names = [];
+    for await (const [name] of d.entries()) names.push(name);
+    for (const name of names.filter(n => n.endsWith('.gguf'))) {
+      const f = await (await d.getFileHandle(name)).getFile();
+      const hash = name.slice(0, 40);
+      items.push({ label: 'GGUF ' + name.replace(/^[0-9a-f]{40}_/, ''), size: f.size,
+        del: async () => { for (const n of names.filter(n => n.includes(hash))) await d.removeEntry(n); } });
+    }
+  } catch {} // no OPFS / no wllama cache yet
+  return items.sort((a, b) => b.size - a.size);
+}
+
+async function renderStorage() {
+  const list = $('st-list');
+  list.textContent = 'Controllo…';
+  const [items, est] = await Promise.all([storageItems(), navigator.storage?.estimate?.() ?? {}]);
+  $('st-summary').textContent = est.usage != null
+    ? `Usati dal sito: ${fmtSize(est.usage)} su ${fmtSize(est.quota)} disponibili. Il modello caricato occupa anche RAM/GPU: usa ⏏ per liberarla.`
+    : 'Modelli scaricati nel browser. Il modello caricato occupa anche RAM/GPU: usa ⏏ per liberarla.';
+  list.innerHTML = '';
+  if (!items.length) list.textContent = 'Nessun modello in cache.';
+  for (const it of items) {
+    const row = document.createElement('div');
+    row.className = 'st-row';
+    row.innerHTML = '<span class="nm"></span><span class="sz"></span><button title="Elimina dal disco">✕</button>';
+    row.querySelector('.nm').textContent = it.label;
+    row.querySelector('.sz').textContent = it.size ? fmtSize(it.size) : '';
+    row.querySelector('button').onclick = async () => { await it.del(); await renderStorage(); initModelPicker(); };
+    list.appendChild(row);
+  }
+  $('st-eject').disabled = !engine;
+}
+
+window.openStorage = async function() {
+  $('st-dialog').showModal();
+  await renderStorage();
+};
+
+window.clearAllStorage = async function() {
+  if (!await ask('Eliminare tutti i modelli scaricati dal browser? Dovrai riscaricarli per usarli di nuovo. Le chat restano.')) return;
+  if (engine) await ejectModel();
+  for (const scope of CACHE_SCOPES) await caches.delete(scope);
+  try { await (await navigator.storage.getDirectory()).removeEntry('cache', { recursive: true }); } catch {}
+  customModels = customModels.filter(m => !m.model?.startsWith(LOCAL_BASE));
+  localStorage.setItem('neo-custom', JSON.stringify(customModels));
+  await renderStorage();
+  initModelPicker();
+  toast('Cache dei modelli svuotata.');
 };
 
 async function startGguf(rec) {

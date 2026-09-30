@@ -67,6 +67,11 @@ Dalla schermata di scelta modello, **+ Modello personalizzato**:
 - **MLC community:** una build WebGPU di MiniCPM5-2B di un autore terzo (non OpenBMB) è in lista come "community". Il suo `.wasm` gira nel tuo browser: usala solo se ti fidi.
 - **Senza WebGPU** (accelerazione hardware spenta, driver, VM): i modelli WebLLM non partono, NEO lo segnala e preseleziona un modello GGUF su CPU.
 
+### Memoria e spazio
+
+- **⏏ Espelli** (piè della sidebar): scarica il modello da RAM/GPU e torna alla scelta; le chat restano.
+- **🧹 Spazio e memoria**: elenca i modelli scaricati nel browser (WebLLM, GGUF, cartelle importate), con la dimensione, e permette di eliminarli uno a uno o tutti.
+
 ## Tech Stack
 
 - [WebLLM](https://webllm.mlc.ai/) — Inferenza LLM nel browser via WebGPU
