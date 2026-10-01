@@ -17,28 +17,21 @@ Nessun server, nessun dato inviato — privacy totale.
 
 ## Come Usare
 
-### Metodo 1: Apri direttamente
-Basta aprire `index.html` nel browser (Chrome 113+, Edge 113+, Firefox 139+).
-
-### Metodo 2: Server locale (per evitare CORS)
+### Server locale (consigliato)
+NEO usa moduli ES, un service worker e i worker dei modelli: servono `http://localhost` o `https`, non `file://`.
 ```bash
 # Python
-python -m http.server 8080
+python3 -m http.server 8080
 
 # Node.js
 npx serve .
 
-# Poi apri http://localhost:8080
+# Windows: start.bat
 ```
+Poi apri http://localhost:8080 (Chrome 113+, Edge 113+, Firefox 139+).
 
-### Metodo 3: Avvia con script
-```bash
-# Windows
-start.bat
-
-# Linux/Mac
-python3 -m http.server 8080 && open http://localhost:8080
-```
+### Deploy
+È un sito statico: basta pubblicare la cartella (ad esempio su Vercel).
 
 ## Requisiti
 
@@ -85,7 +78,7 @@ Un service worker (`sw.js`) tiene in cache l'app e le librerie da CDN. Apri NEO 
 - [WebLLM](https://webllm.mlc.ai/) — Inferenza LLM nel browser via WebGPU
 - [wllama](https://github.com/ngxson/wllama) — llama.cpp in WebAssembly per i modelli GGUF
 - [MLC-AI](https://mlc.ai/) — Compilazione modelli per il browser
-- Vanilla HTML/CSS/JS — Nessun framework, nessuna dipendenza
+- Vanilla HTML/CSS/JS — Nessun framework né build; le librerie arrivano da CDN con versioni fissate (vedi `index.html`)
 
 ## Crediti
 
