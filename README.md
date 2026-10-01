@@ -40,6 +40,10 @@ start.bat
 python3 -m http.server 8080 && open http://localhost:8080
 ```
 
+## Documentazione
+
+Guida completa in **[docs/](docs/README.md)**: [guida utente](docs/utente.md), [modelli](docs/modelli.md), [privacy e dati](docs/privacy.md), [uso offline](docs/offline.md), [architettura](docs/architettura.md), [sviluppo e rilascio](docs/sviluppo.md), [fine-tuning](docs/finetuning.md), [crediti](docs/crediti.md).
+
 ## Requisiti
 
 - Browser con supporto **WebGPU** (Chrome 113+, Edge 113+, Firefox 139+)
