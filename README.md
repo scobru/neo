@@ -83,6 +83,12 @@ Senza chiave usa **Wikipedia** (italiana). Con una chiave gratuita di **[Serper]
 - [MLC-AI](https://mlc.ai/) — Compilazione modelli per il browser
 - Vanilla HTML/CSS/JS — Nessun framework, nessuna dipendenza
 
+## Crediti
+
+Sviluppato da **[scobru](https://github.com/scobru)** — codice sorgente: [github.com/scobru/neo](https://github.com/scobru/neo).
+
+Costruito sopra [WebLLM](https://webllm.mlc.ai/), [wllama](https://github.com/ngxson/wllama), [MLC-AI](https://mlc.ai/), [Redact e Gist](https://github.com/desert-ant-labs) di Desert Ant Labs, [PDF.js](https://mozilla.github.io/pdf.js/) e [Tesseract.js](https://tesseract.projectnaptha.com/). I modelli appartengono ai rispettivi autori (Hugging Face, Alibaba, Meta, Microsoft, Google, Sapienza NLP, OpenBMB).
+
 ## Licenza
 
-MIT
+MIT © scobru
