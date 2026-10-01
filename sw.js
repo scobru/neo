@@ -1,8 +1,8 @@
 // NEO service worker: keeps the app shell and the CDN libraries so NEO starts offline.
 // Model weights are NOT handled here: WebLLM / wllama store them on their own (CacheStorage / OPFS).
 // Bump VERSION to drop the old cache on the next release.
-const VERSION = 'neo-shell-v2';
-const SHELL = ['./', 'index.html', 'logo.svg', 'manifest.webmanifest'];
+const VERSION = 'neo-shell-v3';
+const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'logo.svg', 'manifest.webmanifest'];
 const LIB_HOSTS = ['esm.run', 'esm.sh', 'cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 
 self.addEventListener('install', e => {
