@@ -58,6 +58,13 @@ const missing = await page.evaluate(() => {
   return [...names].filter(n => typeof window[n] !== 'function' && !['confirm', 'alert', 'prompt', 'if'].includes(n));
 });
 check('inline onclick handlers resolve', missing.length === 0, missing.join(', '));
+const mods = await page.evaluate(async () => {
+  const ops = await import('./ops.js'), fmt = await import('./format.js');
+  return { ops: Object.keys(ops.OPS).length, sys: typeof ops.SYSTEM, bp: Object.values(ops.OPS).every(([, action, param]) => ops.buildPrompt(action, param, 'ciao').includes('TESTO:')),
+    md: fmt.fmtMsg('**a** `b`'), esc: fmt.escHtml('<a href="x">&') };
+});
+check('ops.js exports', mods.ops > 0 && mods.sys === 'string' && mods.bp === true, JSON.stringify([mods.ops, mods.sys, mods.bp]));
+check('format.js output', mods.md === '<p><strong>a</strong> <code>b</code></p>' && mods.esc === '&lt;a href=&quot;x&quot;&gt;&amp;', mods.md);
 const body = await page.locator('body').innerText();
 check('model list rendered', /Stub-A|Stub-B/i.test(body) || (await page.locator('[onclick*="startModel"], [data-model]').count()) > 0);
 check('no script errors', errors.length === 0, errors.join(' | '));
