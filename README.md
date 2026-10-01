@@ -76,6 +76,10 @@ Senza chiave usa **Wikipedia** (italiana). Con una chiave gratuita di **[Serper]
 - **⏏ Espelli** (piè della sidebar): scarica il modello da RAM/GPU e torna alla scelta; le chat restano.
 - **🧹 Spazio e memoria**: elenca i modelli scaricati nel browser (WebLLM, GGUF, cartelle importate), con la dimensione, e permette di eliminarli uno a uno o tutti.
 
+### Uso offline (PWA)
+
+Un service worker (`sw.js`) tiene in cache l'app e le librerie da CDN. Apri NEO una volta online da `https` o `localhost` (non da `file://`), scarica il modello, e dopo funziona senza rete; si può anche installare come app dal browser. La ricerca web 🌐 richiede internet. Ad ogni rilascio che cambia i file, aumenta `VERSION` in `sw.js`.
+
 ## Tech Stack
 
 - [WebLLM](https://webllm.mlc.ai/) — Inferenza LLM nel browser via WebGPU
@@ -83,6 +87,12 @@ Senza chiave usa **Wikipedia** (italiana). Con una chiave gratuita di **[Serper]
 - [MLC-AI](https://mlc.ai/) — Compilazione modelli per il browser
 - Vanilla HTML/CSS/JS — Nessun framework, nessuna dipendenza
 
+## Crediti
+
+Sviluppato da **[scobru](https://github.com/scobru)** — codice sorgente: [github.com/scobru/neo](https://github.com/scobru/neo).
+
+Costruito sopra [WebLLM](https://webllm.mlc.ai/), [wllama](https://github.com/ngxson/wllama), [MLC-AI](https://mlc.ai/), [Redact e Gist](https://github.com/desert-ant-labs) di Desert Ant Labs, [PDF.js](https://mozilla.github.io/pdf.js/) e [Tesseract.js](https://tesseract.projectnaptha.com/). I modelli appartengono ai rispettivi autori (Hugging Face, Alibaba, Meta, Microsoft, Google, Sapienza NLP, OpenBMB).
+
 ## Licenza
 
-MIT
+MIT © scobru
