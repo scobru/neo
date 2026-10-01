@@ -998,7 +998,7 @@ html.dark .msg-body pre {
 </div>
 
 <script type="module">
-import * as webllm from 'https://esm.run/@mlc-ai/web-llm';
+import * as webllm from 'https://esm.run/@mlc-ai/web-llm@0.2.85';
 
 // project renamed leo → neo: carry over what was saved under the old name
 for (const k of ['theme', 'convs', 'agents', 'agent', 'custom']) {
@@ -1159,7 +1159,7 @@ window.delAgent = function() {
 let webOn = false;
 let redactP;
 async function safeQuery(text) {
-  redactP ??= import('https://esm.sh/@desert-ant-labs/redact')
+  redactP ??= import('https://esm.sh/@desert-ant-labs/redact@3.5.0')
     .then(m => m.Redact.load())
     .catch(e => { redactP = null; throw e; });
   const { redactedText } = await (await redactP).redaction(text);
@@ -1225,7 +1225,7 @@ async function pdfText(f) {
 async function ocrText(f) {
   if (!window.Tesseract) await new Promise((ok, ko) => {
     const s = document.createElement('script');
-    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
+    s.src = 'https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js';
     s.onload = ok; s.onerror = () => ko(new Error('OCR non caricato'));
     document.head.appendChild(s);
   });
@@ -1287,7 +1287,7 @@ async function tagConv(conv, text) {
   if (conv.topic !== undefined) return;
   conv.topic = null; // one attempt per chat
   try {
-    gistP ??= import('https://esm.sh/@desert-ant-labs/gist')
+    gistP ??= import('https://esm.sh/@desert-ant-labs/gist@3.5.0')
       .then(m => m.Gist.load())
       .catch(e => { gistP = null; throw e; });
     conv.topic = (await (await gistP).classify(text.slice(0, 500)))[0]?.name ?? null;
@@ -1751,7 +1751,7 @@ window.startModel = async function() {
         // Engine runs in a worker (blob module) so the UI never freezes
         worker?.terminate();
         worker = new Worker(URL.createObjectURL(new Blob([
-          `import {WebWorkerMLCEngineHandler} from 'https://esm.run/@mlc-ai/web-llm';
+          `import {WebWorkerMLCEngineHandler} from 'https://esm.run/@mlc-ai/web-llm@0.2.85';
            const h = new WebWorkerMLCEngineHandler(); self.onmessage = m => h.onmessage(m);`
         ], { type: 'text/javascript' })), { type: 'module' });
         engine = await webllm.CreateWebWorkerMLCEngine(worker, tryId, cfg);
