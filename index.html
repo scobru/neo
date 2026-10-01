@@ -5,6 +5,8 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>NEO · AI nel Browser</title>
 <link rel="icon" type="image/svg+xml" href="logo.svg">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#050805">
 <meta name="description" content="NEO — Assistente AI che gira interamente nel tuo browser. Nessun server, privacy totale.">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
@@ -2298,5 +2300,9 @@ console.log('%cNeo', 'font-size:20px;font-weight:600;color:#1a1814;');
 console.log('%cAI nel browser · WebGPU + WebLLM', 'color:#9e9a8f;');
 </script>
 
+<script>
+// Offline: cache the app shell and CDN libraries (needs https or localhost)
+if ("serviceWorker" in navigator) addEventListener("load", () => navigator.serviceWorker.register("sw.js").catch(() => {}));
+</script>
 </body>
 </html>

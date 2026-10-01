@@ -1,0 +1,13 @@
+{
+  "name": "NEO · AI nel Browser",
+  "short_name": "NEO",
+  "description": "Assistente AI che gira interamente nel tuo browser.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#050805",
+  "theme_color": "#050805",
+  "icons": [
+    { "src": "logo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}

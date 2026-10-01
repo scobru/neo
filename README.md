@@ -76,6 +76,10 @@ Senza chiave usa **Wikipedia** (italiana). Con una chiave gratuita di **[Serper]
 - **⏏ Espelli** (piè della sidebar): scarica il modello da RAM/GPU e torna alla scelta; le chat restano.
 - **🧹 Spazio e memoria**: elenca i modelli scaricati nel browser (WebLLM, GGUF, cartelle importate), con la dimensione, e permette di eliminarli uno a uno o tutti.
 
+### Uso offline (PWA)
+
+Un service worker (`sw.js`) tiene in cache l'app e le librerie da CDN. Apri NEO una volta online da `https` o `localhost` (non da `file://`), scarica il modello, e dopo funziona senza rete; si può anche installare come app dal browser. La ricerca web 🌐 richiede internet. Ad ogni rilascio che cambia i file, aumenta `VERSION` in `sw.js`.
+
 ## Tech Stack
 
 - [WebLLM](https://webllm.mlc.ai/) — Inferenza LLM nel browser via WebGPU
