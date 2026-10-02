@@ -521,6 +521,7 @@ async function loadGguf(rec, onProgress) {
 // navigator.gpu can exist while requestAdapter() still returns null (hardware acceleration off, blocklisted driver, VM…)
 // Hybrid laptops: the preferred dGPU may be blocklisted while the iGPU works (e.g. MX250 D3D11 blocked, Iris D3D12 ok),
 // so retry other power preferences and shim requestAdapter so WebLLM (asks "high-performance") gets the working one too.
+let gpuOk = false;
 async function detectGpu() {
   try {
     if (!navigator.gpu) return { ok: false, f16: false, why: `navigator.gpu assente (contesto sicuro: ${isSecureContext}, iframe: ${top !== self})` };
@@ -537,7 +538,8 @@ async function detectGpu() {
 }
 
 async function initModelPicker() {
-  const { ok: gpuOk, f16, why } = await detectGpu();
+  const { ok, f16, why } = await detectGpu();
+  gpuOk = ok;
   const precision = f16 ? 'q4f16' : 'q4f32';
   const all = webllm.prebuiltAppConfig.model_list;
 
@@ -1110,18 +1112,20 @@ async function generate(conv, op = null) {
     started.catch(() => {}); // if stop wins the race, a later rejection must not surface
     const reply = await Promise.race([started, stopP]);
 
-    let full = '';
+    let full = '', n = 0, t0 = 0;
     if (reply !== STOP) {
       const it = reply[Symbol.asyncIterator]();
       for (;;) {
         const r = await Promise.race([it.next(), stopP]);
         if (r === STOP || r.done) break;
         full += r.value.choices[0]?.delta?.content || '';
+        if (!t0) t0 = performance.now(); else if (++n % 8 === 0) showStats(n / ((performance.now() - t0) / 1000));
         bodyEl.innerHTML = fmtMsg(full);
         scrollBottom();
       }
       if (stopped) Promise.resolve(it.return?.()).catch(() => {});
     }
+    if (n > 1) showStats(n / ((performance.now() - t0) / 1000));
 
     if (!full && stopped) {
       msgEl.remove();                    // stopped before any text: nothing to keep
@@ -1161,6 +1165,15 @@ window.stopGen = function() {
     engine?.interruptGenerate?.();
   }, 500);
 };
+
+// Status line: backend, speed (chunks ≈ tokens), JS heap (Chromium only), model cache on disk.
+async function showStats(tps) {
+  const bits = [curRec()?.gguf ? 'CPU (wasm)' : gpuOk ? 'WebGPU' : 'CPU'];
+  if (tps) bits.push(`${tps.toFixed(1)} tok/s`);
+  if (performance.memory) bits.push(`RAM JS ${fmtSize(performance.memory.usedJSHeapSize)}`);
+  try { const u = (await navigator.storage.estimate()).usage; if (u != null) bits.push(`cache ${fmtSize(u)}`); } catch {}
+  $('stats').textContent = bits.join(' · ');
+}
 
 // ── DOM helpers ───────────────────────────
 function appendMsgEl(role, text, opLabel, streaming) {
