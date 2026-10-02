@@ -517,7 +517,7 @@ async function loadGguf(rec, onProgress) {
 // so retry other power preferences and shim requestAdapter so WebLLM (asks "high-performance") gets the working one too.
 async function detectGpu() {
   try {
-    if (!navigator.gpu) return { ok: false, f16: false };
+    if (!navigator.gpu) return { ok: false, f16: false, why: `navigator.gpu assente (contesto sicuro: ${isSecureContext}, iframe: ${top !== self})` };
     const orig = navigator.gpu.requestAdapter.bind(navigator.gpu);
     let a = await orig();
     if (!a) for (const powerPreference of ['high-performance', 'low-power']) {
@@ -526,12 +526,12 @@ async function detectGpu() {
         break;
       }
     }
-    return { ok: !!a, f16: !!a?.features.has('shader-f16') };
-  } catch { return { ok: false, f16: false }; }
+    return { ok: !!a, f16: !!a?.features.has('shader-f16'), why: 'requestAdapter() = null con tutte le preferenze (default, high-performance, low-power)' };
+  } catch (e) { return { ok: false, f16: false, why: `requestAdapter ha lanciato: ${e}` }; }
 }
 
 async function initModelPicker() {
-  const { ok: gpuOk, f16 } = await detectGpu();
+  const { ok: gpuOk, f16, why } = await detectGpu();
   const precision = f16 ? 'q4f16' : 'q4f32';
   const all = webllm.prebuiltAppConfig.model_list;
 
@@ -661,7 +661,8 @@ async function initModelPicker() {
     warn.style.cssText = 'padding:12px 14px;border:1px solid var(--accent);background:var(--accent-soft);border-radius:var(--r-md);font-size:13px;line-height:1.55;color:var(--ink)';
     warn.innerHTML = '<b>WebGPU non disponibile</b> in questo browser: i modelli WebLLM non partiranno. '
       + 'Usa i modelli <b>GGUF (CPU)</b> qui sotto, oppure attiva l\'accelerazione hardware '
-      + '(<code>chrome://settings/system</code>), controlla <code>chrome://gpu</code> e aggiorna i driver della scheda video.';
+      + '(<code>chrome://settings/system</code>), controlla <code>chrome://gpu</code> e aggiorna i driver della scheda video.'
+      + `<br><small>Dettaglio: ${why}</small>`;
     $picker.prepend(warn);
     document.querySelectorAll('.model-option:not(.gguf)').forEach(el => { el.style.opacity = '.5'; });
     // preselect a CPU chat model (an instruct one, not a base model)
