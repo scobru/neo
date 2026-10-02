@@ -1,6 +1,7 @@
 import * as webllm from 'https://esm.run/@mlc-ai/web-llm@0.2.85';
 import { SYSTEM, buildPrompt, OPS } from './ops.js';
 import { fmtMsg, escHtml } from './format.js';
+import { skillUrls, parseSkill } from './skills.js';
 
 // project renamed leo → neo: carry over what was saved under the old name
 for (const k of ['theme', 'convs', 'agents', 'agent', 'custom']) {
@@ -84,6 +85,26 @@ window.newAgent = function() {
   saveAgents();
   setAgent(a.id);
   editAgent();
+};
+
+window.installSkill = async function() {
+  const src = await ask('Installa una skill (SKILL.md) come agente.\nURL GitHub o owner/repo/percorso, es. vercel-labs/agent-skills/skills/react-best-practices:',
+    { ok: 'Installa', input: true });
+  if (!src?.trim()) return;
+  const urls = skillUrls(src);
+  if (!urls.length) return toast('Indirizzo non riconosciuto.');
+  let md;
+  for (const u of urls) {
+    try { const r = await fetch(u); if (r.ok) { md = await r.text(); break; } } catch {}
+  }
+  if (md == null) return toast('SKILL.md non trovato (repo privato o percorso sbagliato).');
+  const sk = parseSkill(md);
+  if (!sk.prompt) return toast('SKILL.md vuoto.');
+  const a = { id: Date.now().toString(36), name: sk.name || src.trim().split('/').filter(Boolean).pop(), prompt: sk.prompt, skill: src.trim() };
+  agents.push(a);
+  saveAgents();
+  setAgent(a.id);
+  toast(`Skill «${a.name}» installata come agente` + (sk.prompt.length > 4000 ? ' (lunga: i modelli piccoli possono perdere il contesto).' : '.'));
 };
 
 window.saveAgent = function() {

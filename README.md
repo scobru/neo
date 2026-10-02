@@ -79,7 +79,7 @@ Un service worker (`sw.js`) tiene in cache l'app e le librerie da CDN. Apri NEO 
 
 ## Struttura e test
 
-- `index.html` (markup), `style.css`, `app.js` (logica, modulo ES), `ops.js` (prompt delle operazioni sul testo), `format.js` (formattazione dei messaggi), `sw.js` (service worker offline).
+- `index.html` (markup), `style.css`, `app.js` (logica, modulo ES), `ops.js` (prompt delle operazioni sul testo), `format.js` (formattazione dei messaggi), `skills.js` (installazione skill da GitHub), `sw.js` (service worker offline).
 - `node test/smoke.mjs` avvia l'app in Chromium headless con WebLLM simulato e controlla che parta senza errori (serve `playwright`).
 
 ## Tech Stack
