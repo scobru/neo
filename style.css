@@ -571,6 +571,14 @@ body {
   background: var(--cream);
 }
 
+.stats {
+  max-width: 680px;
+  margin: 6px auto 0;
+  font-size: 11px;
+  color: var(--ink-light);
+  min-height: 14px;
+}
+
 .input-bar-inner {
   max-width: 680px;
   margin: 0 auto;
