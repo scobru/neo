@@ -234,8 +234,14 @@ document.getElementById('file-input').addEventListener('change', async e => {
 
 // ── Topic tag per chat (Desert Ant "Gist", on device, loaded lazily in background) ──
 let gistP;
+const gistOn = () => localStorage.getItem('neo-gist') !== '0'; // default on
+window.toggleGist = function() {
+  localStorage.setItem('neo-gist', gistOn() ? '0' : '1');
+  document.getElementById('gist-toggle').classList.toggle('on', gistOn());
+};
+document.getElementById('gist-toggle').classList.toggle('on', gistOn());
 async function tagConv(conv, text) {
-  if (conv.topic !== undefined) return;
+  if (!gistOn() || conv.topic !== undefined) return;
   conv.topic = null; // one attempt per chat
   try {
     gistP ??= import('https://esm.sh/@desert-ant-labs/gist@3.5.0')
