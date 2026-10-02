@@ -513,10 +513,19 @@ async function loadGguf(rec, onProgress) {
 }
 
 // navigator.gpu can exist while requestAdapter() still returns null (hardware acceleration off, blocklisted driver, VM…)
+// Hybrid laptops: the preferred dGPU may be blocklisted while the iGPU works (e.g. MX250 D3D11 blocked, Iris D3D12 ok),
+// so retry other power preferences and shim requestAdapter so WebLLM (asks "high-performance") gets the working one too.
 async function detectGpu() {
   try {
     if (!navigator.gpu) return { ok: false, f16: false };
-    const a = await navigator.gpu.requestAdapter();
+    const orig = navigator.gpu.requestAdapter.bind(navigator.gpu);
+    let a = await orig();
+    if (!a) for (const powerPreference of ['high-performance', 'low-power']) {
+      if ((a = await orig({ powerPreference }))) {
+        navigator.gpu.requestAdapter = async o => (await orig(o)) || orig({ powerPreference });
+        break;
+      }
+    }
     return { ok: !!a, f16: !!a?.features.has('shader-f16') };
   } catch { return { ok: false, f16: false }; }
 }
