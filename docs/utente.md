@@ -95,6 +95,7 @@ Un agente è un **system prompt** con parametri facoltativi. Si sceglie dal menu
 
 - **⚙** modifica l'agente: nome, prompt, temperatura, top-p, max token (vuoto = valori del modello).
 - **+** ne crea uno nuovo. **Elimina** rimuove quello corrente (ne resta sempre almeno uno).
+- **⬇** installa una *skill*: incolla un URL GitHub o `owner/repo/percorso` (es. `vercel-labs/agent-skills/skills/react-best-practices`); Neo scarica il `SKILL.md` e lo aggiunge come agente (il corpo diventa il system prompt). Funziona solo con repo pubblici; skill lunghe possono saturare il contesto dei modelli piccoli.
 - L'agente predefinito è *Neo*: «Sei Neo, assistente AI. Rispondi sempre in italiano, in modo breve e diretto. Se non sai la risposta, dillo.»
 - Ogni chat ricorda il proprio agente. Le operazioni ⚡ ignorano l'agente e usano sempre i loro parametri fissi.
 
