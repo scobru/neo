@@ -661,7 +661,8 @@ async function initModelPicker() {
     warn.style.cssText = 'padding:12px 14px;border:1px solid var(--accent);background:var(--accent-soft);border-radius:var(--r-md);font-size:13px;line-height:1.55;color:var(--ink)';
     warn.innerHTML = '<b>WebGPU non disponibile</b> in questo browser: i modelli WebLLM non partiranno. '
       + 'Usa i modelli <b>GGUF (CPU)</b> qui sotto, oppure attiva l\'accelerazione hardware '
-      + '(<code>chrome://settings/system</code>), controlla <code>chrome://gpu</code> e aggiorna i driver della scheda video.'
+      + '(<code>chrome://settings/system</code>), controlla <code>chrome://gpu</code> e aggiorna i driver della scheda video. '
+      + '<b>Su Brave</b> abilita <code>brave://flags/#enable-unsafe-webgpu</code> e riavvia il browser.'
       + `<br><small>Dettaglio: ${why}</small>`;
     $picker.prepend(warn);
     document.querySelectorAll('.model-option:not(.gguf)').forEach(el => { el.style.opacity = '.5'; });

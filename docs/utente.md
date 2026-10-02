@@ -112,7 +112,7 @@ Nel piè della barra laterale:
 
 | Sintomo | Causa probabile | Cosa fare |
 |---|---|---|
-| «WebGPU non disponibile» | accelerazione hardware spenta o driver | attiva l'accelerazione in `chrome://settings/system`, controlla `chrome://gpu`, aggiorna i driver, oppure usa un modello GGUF |
+| «WebGPU non disponibile» | accelerazione hardware spenta o driver | attiva l'accelerazione in `chrome://settings/system`, controlla `chrome://gpu`, aggiorna i driver; su Brave abilita `brave://flags/#enable-unsafe-webgpu`; oppure usa un modello GGUF |
 | Errore di memoria con un GGUF | modello troppo grande per WebAssembly (oltre circa 1 GB è rischioso) | prova MiniCPM5-1B o Minerva-350M |
 | Il modello non risponde bene alle istruzioni | i modelli **Minerva** sono *base*, non addestrati a seguire istruzioni | usa un modello instruct (Qwen, Llama, Gemma, MiniCPM5) |
 | «Ricerca web non eseguita» | Redact non si è caricato (offline o rete bloccata) | riprova con la rete attiva; la query non viene mai inviata senza filtro |
