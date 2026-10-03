@@ -87,8 +87,14 @@ window.newAgent = function() {
   editAgent();
 };
 
+// ── Skills: installed SKILL.md files, toggled on with /name; active ones are appended to the system prompt ──
+let skills = (() => { try { return JSON.parse(localStorage.getItem('neo-skills')) || []; } catch { return []; } })();
+const saveSkills = () => { localStorage.setItem('neo-skills', JSON.stringify(skills)); renderCmds(); };
+const slug = n => n.toLowerCase().replace(/[^\w-]+/g, '-').replace(/^-+|-+$/g, '');
+
 window.installSkill = async function() {
-  const src = await ask('Installa una skill (SKILL.md) come agente.\nURL GitHub o owner/repo/percorso, es. vercel-labs/agent-skills/skills/react-best-practices:',
+  $cmdPopover.classList.remove('open');
+  const src = await ask('Installa una skill (SKILL.md). Poi si attiva scrivendo /nome nella chat.\nURL GitHub o owner/repo/percorso, es. vercel-labs/agent-skills/skills/react-best-practices:',
     { ok: 'Installa', input: true });
   if (!src?.trim()) return;
   const urls = skillUrls(src);
@@ -100,11 +106,24 @@ window.installSkill = async function() {
   if (md == null) return toast('SKILL.md non trovato (repo privato o percorso sbagliato).');
   const sk = parseSkill(md);
   if (!sk.prompt) return toast('SKILL.md vuoto.');
-  const a = { id: Date.now().toString(36), name: sk.name || src.trim().split('/').filter(Boolean).pop(), prompt: sk.prompt, skill: src.trim() };
-  agents.push(a);
-  saveAgents();
-  setAgent(a.id);
-  toast(`Skill «${a.name}» installata come agente` + (sk.prompt.length > 4000 ? ' (lunga: i modelli piccoli possono perdere il contesto).' : '.'));
+  const name = slug(sk.name || src.trim().split('/').filter(Boolean).pop());
+  skills = skills.filter(x => x.name !== name);
+  skills.push({ name, description: sk.description, prompt: sk.prompt, on: false });
+  saveSkills();
+  toast(`Skill installata: scrivi /${name} per attivarla` + (sk.prompt.length > 4000 ? ' (lunga: i modelli piccoli possono perdere il contesto).' : '.'));
+};
+
+window.toggleSkill = function(name) {
+  const k = skills.find(x => x.name === name);
+  if (!k) return;
+  k.on = !k.on;
+  saveSkills();
+  toast(`/${name} ${k.on ? 'attiva' : 'disattivata'}`);
+};
+
+window.delSkill = function(name) {
+  skills = skills.filter(x => x.name !== name);
+  saveSkills();
 };
 
 window.saveAgent = function() {
@@ -1016,7 +1035,14 @@ function renderMessages() {
 // ── Chat ──────────────────────────────────
 window.sendMessage = async function() {
   // files attached with no question → default request
-  const text = $chatInput.value.trim() || (pending.some(f => f.text) ? 'Riassumi il contenuto.' : '');
+  let text = $chatInput.value.trim();
+  // /name toggles an installed skill; /name some text turns it on and sends the text
+  const cmd = text.match(/^\/([\w-]+)\s*([\s\S]*)$/), sk = cmd && skills.find(k => k.name === cmd[1].toLowerCase());
+  if (sk) {
+    if (cmd[2]) { sk.on = true; saveSkills(); text = cmd[2]; }
+    else { $chatInput.value = ''; autoResize(); return toggleSkill(sk.name); }
+  }
+  text ||= pending.some(f => f.text) ? 'Riassumi il contenuto.' : '';
   if (!text || isGenerating || !engine) return;
 
   const conv = getActiveConv();
@@ -1113,7 +1139,8 @@ async function generate(conv, op = null) {
   try {
     // Build messages for API (strip opLabel)
     const ag = getAgent(conv.agentId);
-    const sys = stateless ? SYSTEM : ag.prompt.trim();
+    const act = skills.filter(k => k.on).map(k => `## Skill: ${k.name}\n${k.prompt}`);
+    const sys = stateless ? SYSTEM : [ag.prompt.trim(), ...act].filter(Boolean).join('\n\n');
     const hist = stateless ? conv.messages.slice(-1) : trimHistory(conv.messages);
     const apiMsgs = [
       ...(sys ? [{ role: 'system', content: sys }] : []),
@@ -1256,8 +1283,14 @@ function autoResize() {
 }
 
 // ── Commands popover ──────────────────────
-$cmdPopover.innerHTML = '<div class="cmd-popover-title">Operazioni sul testo</div>' + Object.entries(OPS).map(([k, o]) =>
-  `<button class="cmd-item" onclick="runOp('${k}')"><span class="cmd-icon">${o[3]}</span><div><div class="cmd-label">${o[0]}</div><div class="cmd-desc">${o[4]}</div></div></button>`).join('');
+function renderCmds() {
+  $cmdPopover.innerHTML = '<div class="cmd-popover-title">Operazioni sul testo</div>' + Object.entries(OPS).map(([k, o]) =>
+    `<button class="cmd-item" onclick="runOp('${k}')"><span class="cmd-icon">${o[3]}</span><div><div class="cmd-label">${o[0]}</div><div class="cmd-desc">${o[4]}</div></div></button>`).join('')
+    + '<div class="cmd-popover-title">Skill</div>' + skills.map(k =>
+    `<div style="display:flex"><button class="cmd-item" style="flex:1" onclick="toggleSkill('${k.name}')"><span class="cmd-icon">${k.on ? '✓' : '○'}</span><div><div class="cmd-label">/${escHtml(k.name)}</div><div class="cmd-desc">${escHtml((k.description || '').slice(0, 80))}</div></div></button><button class="cmd-item" style="flex:0" title="Rimuovi" onclick="delSkill('${k.name}')">✕</button></div>`).join('')
+    + '<button class="cmd-item" onclick="installSkill()"><span class="cmd-icon">⬇</span><div><div class="cmd-label">Installa skill…</div><div class="cmd-desc">Da GitHub o Vercel (SKILL.md)</div></div></button>';
+}
+renderCmds();
 window.toggleCommands = function() {
   $cmdPopover.classList.toggle('open');
 };
