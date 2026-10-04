@@ -2,6 +2,7 @@ import * as webllm from 'https://esm.run/@mlc-ai/web-llm@0.2.85';
 import { SYSTEM, buildPrompt, OPS } from './ops.js';
 import { fmtMsg, escHtml } from './format.js';
 import { skillUrls, parseSkill } from './skills.js';
+import { samplingFor, THINK_SAMPLING, isQwen3, stripThink } from './models.js';
 
 // project renamed leo → neo: carry over what was saved under the old name
 for (const k of ['theme', 'convs', 'agents', 'agent', 'custom']) {
@@ -38,7 +39,9 @@ let conversations = (() => { // [{id, title, agentId, messages:[]}]
 let activeConvId = null;
 // ponytail: whole list rewritten on each save; fine until localStorage (~5MB) fills
 const saveConvs = () => {
-  try { localStorage.setItem('neo-convs', JSON.stringify(conversations.filter(c => c.messages.length))); } catch {}
+  // images (vision) live in memory only: data URLs would fill localStorage
+  const strip = c => ({ ...c, messages: c.messages.map(({ imgs, ...m }) => m) });
+  try { localStorage.setItem('neo-convs', JSON.stringify(conversations.filter(c => c.messages.length).map(strip))); } catch {}
 };
 
 // ── Agents (editable system prompts) ───────
@@ -85,6 +88,26 @@ window.newAgent = function() {
   saveAgents();
   setAgent(a.id);
   editAgent();
+};
+
+// ── Global settings (as in web-llm-chat). Precedence: agent > settings > model default ──
+let settings = (() => { try { return JSON.parse(localStorage.getItem('neo-settings')) || {}; } catch { return {}; } })();
+const SET_NUM = { 'set-temp': 'temperature', 'set-topp': 'top_p', 'set-pp': 'presence_penalty', 'set-fp': 'frequency_penalty', 'set-max': 'max_tokens' };
+
+window.openSettings = function() {
+  for (const [id, k] of Object.entries(SET_NUM)) document.getElementById(id).value = settings[k] ?? '';
+  document.getElementById('set-think').checked = !!settings.thinking;
+  document.getElementById('set-dialog').showModal();
+};
+
+window.saveSettings = function(reset) {
+  settings = { thinking: !reset && document.getElementById('set-think').checked };
+  if (!reset) for (const [id, k] of Object.entries(SET_NUM)) {
+    const v = document.getElementById(id).value.trim();
+    if (v !== '' && !isNaN(+v)) settings[k] = +v;
+  }
+  localStorage.setItem('neo-settings', JSON.stringify(settings));
+  document.getElementById('set-dialog').close();
 };
 
 // ── Skills: installed SKILL.md files, toggled on with /name; active ones are appended to the system prompt ──
@@ -251,7 +274,7 @@ function renderChips() {
   pending.forEach((f, i) => {
     const c = document.createElement('span');
     c.className = 'chip' + (f.error ? ' err' : '');
-    c.textContent = '📎 ' + f.name + (f.error ? ` — ${f.error}` : f.text == null ? ' …' : f.text.trim() ? '' : ' — nessun testo');
+    c.textContent = (f.img ? '🖼 ' : '📎 ') + f.name + (f.error ? ` — ${f.error}` : f.img ? '' : f.text == null ? ' …' : f.text.trim() ? '' : ' — nessun testo');
     const x = document.createElement('button');
     x.textContent = '✕';
     x.onclick = () => { pending.splice(i, 1); renderChips(); };
@@ -266,7 +289,13 @@ document.getElementById('file-input').addEventListener('change', async e => {
     const item = { name: f.name, text: null };
     pending.push(item);
     renderChips();
-    try { item.text = await extractText(f); } catch (err) { item.error = err.message; }
+    try {
+      if (f.type.startsWith('image/') && isVlm()) { // vision model: send the picture itself, no OCR
+        if (f.size > 20e6) throw new Error('file troppo grande (max 20 MB)');
+        item.img = await new Promise((ok, ko) => { const r = new FileReader(); r.onload = () => ok(r.result); r.onerror = ko; r.readAsDataURL(f); });
+        item.text = '';
+      } else item.text = await extractText(f);
+    } catch (err) { item.error = err.message; }
     renderChips();
   }
   e.target.value = '';
@@ -337,8 +366,8 @@ const $cmdPopover   = $('cmd-popover');
 
 // ── Model discovery ───────────────────────
 const DESIRED = [
-  'smollm', 'qwen2.5-0.5b', 'qwen2.5-1.5b', 'qwen2.5-3b',
-  'llama-3.2-1b', 'llama-3.2-3b', 'phi-3.5-mini', 'phi-4-mini',
+  'smollm', 'qwen2.5-0.5b', 'qwen2.5-1.5b', 'qwen2.5-3b', 'qwen3',
+  'llama-3.2-1b', 'llama-3.2-3b', 'phi-3.5-mini', 'phi-3.5-vision', 'phi-4-mini',
   'gemma-2-2b', 'gemma-3-1b', 'tinyllama',
 ];
 
@@ -487,6 +516,7 @@ const IT_FLAG = '<svg viewBox="0 0 3 2" width="18" height="12" style="vertical-a
 const ggufModels = () => [...GGUF_CATALOG, ...customModels.filter(m => m.gguf)];
 const curRec = () => [...allModels(), ...ggufModels()].find(m => m.model_id === currentModelId);
 const noThink = () => !!curRec()?.noThink;
+const isVlm = () => curRec()?.model_type === webllm.ModelType.VLM;
 
 // Base models have no chat template: plain "### Utente / ### Assistente" format, cut at the next "###".
 function basePrompt(msgs) {
@@ -636,7 +666,7 @@ async function initModelPicker() {
     const label = m.model_id.replace(/-MLC$/i,'').replace(/-q4f\d+_\d+/i,'').replace(/-[Ii]nstruct/,'');
     const prec = m.model_id.includes('q4f16') ? 'f16' : 'f32';
     const custom = customModels.includes(m);
-    const vram = [custom && (m.model.startsWith(LOCAL_BASE) ? '★ locale' : '★ personalizzato'), m.community && '★ community · EN/中文', m.vram_required_MB && `~${m.vram_required_MB} MB`].filter(Boolean).join(' · ');
+    const vram = [custom && (m.model.startsWith(LOCAL_BASE) ? '★ locale' : '★ personalizzato'), m.community && '★ community · EN/中文', m.model_type === webllm.ModelType.VLM && '🖼 vision', m.vram_required_MB && `~${m.vram_required_MB} MB`].filter(Boolean).join(' · ');
 
     const btn = document.createElement('button');
     btn.className = 'model-option';
@@ -1042,7 +1072,8 @@ window.sendMessage = async function() {
     if (cmd[2]) { sk.on = true; saveSkills(); text = cmd[2]; }
     else { $chatInput.value = ''; autoResize(); return toggleSkill(sk.name); }
   }
-  text ||= pending.some(f => f.text) ? 'Riassumi il contenuto.' : '';
+  const imgs = pending.filter(f => f.img);
+  text ||= pending.some(f => f.text) ? 'Riassumi il contenuto.' : imgs.length ? 'Descrivi l\'immagine.' : '';
   if (!text || isGenerating || !engine) return;
 
   const conv = getActiveConv();
@@ -1076,6 +1107,10 @@ window.sendMessage = async function() {
     ? { role: 'user', shown, opLabel: labels.join(' · '),
         content: `${blocks.join('\n\n')}\n\n---\nDomanda: ${text}\nRispondi usando solo il materiale sopra${webOn ? ' e cita le fonti web con [n]' : ''}. Se non basta, dillo.` }
     : { role: 'user', content: text };
+  if (imgs.length && isVlm()) {
+    msg.imgs = imgs.map(f => f.img);
+    msg.shown = (msg.shown ?? text) + '\n\n🖼 ' + imgs.map(f => f.name).join(', ');
+  }
   conv.messages.push(msg);
   appendMsgEl('user', msg.shown ?? text, msg.opLabel);
   pending = [];
@@ -1144,18 +1179,24 @@ async function generate(conv, op = null) {
     const hist = stateless ? conv.messages.slice(-1) : trimHistory(conv.messages);
     const apiMsgs = [
       ...(sys ? [{ role: 'system', content: sys }] : []),
-      ...hist.map(m => ({ role: m.role, content: m.content })),
+      ...hist.map(m => ({ role: m.role, content: isVlm() && m.imgs?.length
+        ? [{ type: 'text', text: m.content }, ...m.imgs.map(url => ({ type: 'image_url', image_url: { url } }))]
+        : m.content })),
     ];
 
+    // sampling: text operations fixed; chat: agent > settings > model default > family preset > 0.5/0.9
+    const think = !stateless && !!settings.thinking && isQwen3(currentModelId);
+    const dflt = curRec()?.sampling ?? (think ? THINK_SAMPLING : samplingFor(currentModelId));
     const started = engine.chat.completions.create({
       messages: apiMsgs,
       stream: true,
-      // text operations: fixed low temperature (as in the fine-tune eval); chat: agent override > model default > 0.5/0.9
-      temperature: stateless ? 0.3 : (ag.temperature ?? curRec()?.sampling?.temperature ?? 0.5),
-      top_p: ag.top_p ?? curRec()?.sampling?.top_p ?? 0.9,
-      frequency_penalty: 0.3,
-      max_tokens: op ? op.maxTok : (ag.max_tokens ?? 512),
-      ...(noThink() ? { extra_body: { enable_thinking: false } } : {}), // MiniCPM5: no <think> block
+      temperature: stateless ? 0.3 : (ag.temperature ?? settings.temperature ?? dflt?.temperature ?? 0.5),
+      top_p: ag.top_p ?? settings.top_p ?? dflt?.top_p ?? 0.9,
+      frequency_penalty: settings.frequency_penalty ?? 0.3,
+      ...(settings.presence_penalty != null ? { presence_penalty: settings.presence_penalty } : {}),
+      max_tokens: op ? op.maxTok : (ag.max_tokens ?? settings.max_tokens ?? (think ? 2048 : 512)),
+      ...(think ? { extra_body: { enable_thinking: true } }
+        : noThink() || isQwen3(currentModelId) ? { extra_body: { enable_thinking: false } } : {}), // no <think> block unless asked
     });
     started.catch(() => {}); // if stop wins the race, a later rejection must not surface
     const reply = await Promise.race([started, stopP]);
@@ -1168,13 +1209,15 @@ async function generate(conv, op = null) {
         if (r === STOP || r.done) break;
         full += r.value.choices[0]?.delta?.content || '';
         if (!t0) t0 = performance.now(); else if (++n % 8 === 0) showStats(n / ((performance.now() - t0) / 1000));
-        bodyEl.innerHTML = fmtMsg(full);
+        const vis = stripThink(full);
+        if (vis) bodyEl.innerHTML = fmtMsg(vis); // still inside <think>: keep the typing dots
         scrollBottom();
       }
       if (stopped) Promise.resolve(it.return?.()).catch(() => {});
     }
     if (n > 1) showStats(n / ((performance.now() - t0) / 1000));
 
+    full = stripThink(full);
     if (!full && stopped) {
       msgEl.remove();                    // stopped before any text: nothing to keep
     } else {
@@ -1200,6 +1243,18 @@ async function generate(conv, op = null) {
     $chatInput.focus();
   }
 }
+
+window.exportChat = function() {
+  const c = getActiveConv();
+  if (!c?.messages.length) return toast('Nessuna chat da esportare.');
+  const md = `# ${c.title}\n\n` + c.messages.map(m => `## ${m.role === 'user' ? 'Tu' : 'Neo'}\n\n${m.shown ?? m.content}\n`).join('\n');
+  const a = Object.assign(document.createElement('a'), {
+    href: URL.createObjectURL(new Blob([md], { type: 'text/markdown' })),
+    download: (slug(c.title) || 'chat') + '.md',
+  });
+  a.click();
+  URL.revokeObjectURL(a.href);
+};
 
 window.stopGen = function() {
   currentStop?.();                       // UI is freed right away
