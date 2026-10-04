@@ -12,16 +12,14 @@ NEO è **un solo file**: `index.html` contiene markup, CSS e un blocco `<script 
 │                                                                     │
 │ generate() ──► engine.chat.completions.create({messages, stream})   │
 │                    │                                                │
-│        ┌───────────┴───────────┐                                    │
-│   WebLLM (GPU, worker)    loadGguf() → wllama (CPU)                 │
-│   esm.run/@mlc-ai/web-llm      cdn.jsdelivr.net/@wllama/wllama      │
+│   WebLLM (GPU, worker)  ← esm.run/@mlc-ai/web-llm                   │
 │                                                                     │
 │ extra (caricati a richiesta): Redact, Gist, PDF.js, Tesseract       │
 └─────────────────────────────────────────────────────────────────────┘
  sw.js: cache dell'app e delle librerie (offline)
 ```
 
-L'idea chiave è che **entrambi i motori espongono la stessa interfaccia**, quella di WebLLM: `chat.completions.create({messages, stream: true, …})` che restituisce un iteratore asincrono di `choices[0].delta.content`, più `interruptGenerate()` e `unload()`. `loadGguf()` costruisce un oggetto con questa forma sopra wllama, quindi il resto dell'app non sa quale motore sta usando.
+L'unico motore è WebLLM: `chat.completions.create({messages, stream: true, …})` restituisce un iteratore asincrono di `choices[0].delta.content`, e il motore espone anche `interruptGenerate()` e `unload()`.
 
 ## Mappa del codice (`index.html`)
 
@@ -38,10 +36,9 @@ L'idea chiave è che **entrambi i motori espongono la stessa interfaccia**, quel
 | Gist | `tagConv` |
 | Cronologia | `trimHistory` |
 | Utility UI | `ask()` (dialog al posto di `confirm`/`prompt`), `toast()` |
-| Modelli personalizzati | `libUrl`, `saveCustom`, `addCustom`, `addGguf`, `importLocal`, `purgeLocal` |
-| Catalogo GGUF e community | `GGUF_CATALOG`, `COMMUNITY_MLC`, `ggufModels`, `curRec`, `noThink` |
-| Prompt GGUF | `basePrompt` (modelli base), `chatmlPrompt` (ChatML) |
-| Motore GGUF | `loadGguf`, `startGguf` |
+| Modelli personalizzati | `libUrl`, `saveCustom`, `addCustom`, `importLocal`, `purgeLocal` |
+| Modello corrente | `curRec`, `isVlm` (modelli vision) |
+| Impostazioni | `settings`, `openSettings`, `saveSettings`; campionamento per famiglia in `models.js` |
 | Scelta del modello | `detectGpu`, `initModelPicker` |
 | Caricamento | `startModel`, `unloadEngine`, `changeModel`, `backToChat`, `ejectModel`, `enterChat` |
 | Spazio e memoria | `storageItems`, `renderStorage`, `openStorage`, `clearAllStorage` |
@@ -57,11 +54,10 @@ Le funzioni usate negli `onclick` del markup sono assegnate a `window.*` perché
 ### Caricamento del modello (`startModel`)
 
 1. Scarica l'eventuale motore precedente (`unloadEngine`).
-2. Se l'id è un GGUF, passa a `startGguf` → `loadGguf` (scarica da URL con barra di avanzamento).
-3. Altrimenti prova l'id scelto e poi la variante di precisione opposta (`q4f16` ↔ `q4f32`) se esiste.
-4. Crea il motore **in un Web Worker** (un modulo creato da un blob che importa WebLLM e istanzia `WebWorkerMLCEngineHandler`), così l'interfaccia non si blocca.
-5. Se il worker non ha accesso alla GPU («compatible GPU»), riprova **sul thread principale**.
-6. Se riesce, `enterChat` mostra la chat e riprende l'ultima conversazione.
+2. Prova l'id scelto e poi la variante di precisione opposta (`q4f16` ↔ `q4f32`) se esiste.
+3. Crea il motore **in un Web Worker** (un modulo creato da un blob che importa WebLLM e istanzia `WebWorkerMLCEngineHandler`), così l'interfaccia non si blocca.
+4. Se il worker non ha accesso alla GPU («compatible GPU»), riprova **sul thread principale**.
+5. Se riesce, `enterChat` mostra la chat e riprende l'ultima conversazione.
 
 ### Invio di un messaggio (`sendMessage` → `generate`)
 
@@ -122,8 +118,6 @@ I tre parametri sono facoltativi (assenti = valori del modello).
   "required_features": ["shader-f16"] }
 ```
 
-Per un GGUF: `{ "model_id": "…", "gguf": "<URL>", "n_ctx": 2048 }`. Le voci del catalogo GGUF possono avere anche `format: "chatml"`, `bos`, `noThink`, `sampling`, `note`, `it`, `size`.
-
 ## Convenzioni
 
 - **Una sola origine di verità** per i prompt, condivisa con il notebook.
@@ -137,7 +131,5 @@ Per un GGUF: `{ "model_id": "…", "gguf": "<URL>", "n_ctx": 2048 }`. Le voci de
 ## Limiti noti
 
 - Il `localStorage` (~5 MB) è l'unico archivio delle chat.
-- wllama usa solo la CPU e, di norma, un thread.
 - Il contesto è piccolo (circa 4000 token): per questo la cronologia e gli allegati sono tagliati.
-- I Minerva sono modelli base e non seguono le istruzioni.
 - Il rendering Markdown è minimale (niente elenchi, tabelle o link).

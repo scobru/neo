@@ -18,7 +18,7 @@ Il service worker `sw.js` si registra al caricamento della pagina (`index.html`,
 | Librerie e font (`esm.run`, `esm.sh`, `cdn.jsdelivr.net`, `fonts.googleapis.com`, `fonts.gstatic.com`) | **cache subito, aggiornamento in sottofondo** |
 | Tutto il resto (Hugging Face, Serper, Wikipedia…) | **direttamente in rete**, nessuna cache |
 
-Il service worker mette in cache solo il codice. I **pesi dei modelli non passano da lui**: li gestiscono WebLLM (CacheStorage) e wllama (OPFS), così non si duplicano file da gigabyte. Nome della cache: `neo-shell-v1`; non interferisce con **🧹 Spazio e memoria**, che conosce solo le cache dei modelli.
+Il service worker mette in cache solo il codice. I **pesi dei modelli non passano da lui**: li gestisce WebLLM (CacheStorage), così non si duplicano file da gigabyte. Nome della cache: `neo-shell-v1`; non interferisce con **🧹 Spazio e memoria**, che conosce solo le cache dei modelli.
 
 ## Cosa funziona offline
 

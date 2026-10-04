@@ -24,7 +24,7 @@ window.toggleTheme = () => {
   }
 })();
 
-// No blocking overlay when WebGPU is missing: GGUF (CPU) models still work; the model picker explains it.
+// No blocking overlay when WebGPU is missing: the model picker explains it.
 
 // ── State ──────────────────────────────────
 let engine = null;
@@ -374,9 +374,9 @@ const DESIRED = [
 // Custom models (your own MLC builds): stored locally, shown first in the picker.
 // WebLLM appends "resolve/main/" to `model` unless the URL already contains "/resolve/<branch>/".
 let customModels = (() => {
-  try { return JSON.parse(localStorage.getItem('neo-custom')) || []; } catch { return []; }
+  try { return (JSON.parse(localStorage.getItem('neo-custom')) || []).filter(m => !m.gguf); } catch { return []; } // GGUF support was removed
 })();
-const allModels = () => [...webllm.prebuiltAppConfig.model_list, ...COMMUNITY_MLC, ...customModels.filter(m => !m.gguf)];
+const allModels = () => [...webllm.prebuiltAppConfig.model_list, ...customModels];
 
 // In-page replacements for confirm/alert/prompt: embedded browsers and some settings suppress the native ones,
 // which made "Elimina" silently do nothing.
@@ -431,15 +431,6 @@ window.addCustom = function() {
   } catch (err) { toast('Modello non valido: ' + err.message); }
 };
 
-window.addGguf = function() {
-  try {
-    const url = absUrl($g('cm-gguf').value);
-    const rec = { model_id: $g('cm-id').value.trim() || decodeURIComponent(url.split('/').pop().replace(/\.gguf$/i, '')), gguf: url };
-    if (+$g('cm-ctx').value) rec.n_ctx = +$g('cm-ctx').value;
-    saveCustom(rec);
-  } catch (err) { toast('GGUF non valido: ' + err.message); }
-};
-
 // ── Local model from disk ──
 // WebLLM only knows URLs, so the files are copied into the same browser Cache it uses for downloads,
 // under a fake https://leo.local/... base URL. It then finds them "already downloaded".
@@ -489,104 +480,8 @@ async function purgeLocal(m) { // delete the copied files of a local model
   }
 }
 
-// ── GGUF models (Minerva…) run with wllama = llama.cpp compiled to WebAssembly: a 2nd backend next to WebLLM ──
-const HF = (repo, file) => `https://huggingface.co/${repo}/resolve/main/${file}`;
-const GGUF_CATALOG = [
-  // Minerva: Sapienza NLP, native Italian/English *base* models; GGUF quants by mradermacher (not gated)
-  { it: true, model_id: 'Minerva-350M-base-Q8_0', size: 374, gguf: HF('mradermacher/Minerva-350M-base-v1.0-GGUF', 'Minerva-350M-base-v1.0.Q8_0.gguf') },
-  { it: true, model_id: 'Minerva-1B-base-Q4_K_M', size: 617, gguf: HF('mradermacher/Minerva-1B-base-v1.0-GGUF', 'Minerva-1B-base-v1.0.Q4_K_M.gguf') },
-  { it: true, model_id: 'Minerva-3B-base-Q4_K_M', size: 1752, gguf: HF('mradermacher/Minerva-3B-base-v1.0-GGUF', 'Minerva-3B-base-v1.0.Q4_K_M.gguf') },
-  // MiniCPM5 (OpenBMB, official GGUF): chat models, English/Chinese. ChatML format, thinking switched off.
-  { note: 'EN/中文, italiano debole', model_id: 'MiniCPM5-1B-Q4_K_M', size: 688, format: 'chatml', bos: '<s>', noThink: true, sampling: { temperature: 0.7, top_p: 0.95 }, gguf: HF('openbmb/MiniCPM5-1B-GGUF', 'MiniCPM5-1B-Q4_K_M.gguf') },
-  { note: 'EN/中文, italiano debole', model_id: 'MiniCPM5-2B-Q4_K_M', size: 1561, format: 'chatml', bos: '<s>', noThink: true, sampling: { temperature: 0.7, top_p: 0.95 }, gguf: HF('openbmb/MiniCPM5-2B-GGUF', 'MiniCPM5-2B-Q4_K_M.gguf') },
-];
-// WebGPU (MLC) build of MiniCPM5-2B by a community author, NOT by OpenBMB (https://huggingface.co/ozhyhinas/MiniCPM5-2B-q4f16_1-MLC).
-// Its .wasm runs inside your browser tab: only use it if you trust the author.
-const COMMUNITY_MLC = [{
-  community: true, noThink: true, sampling: { temperature: 0.7, top_p: 0.95 }, // OpenBMB's recommended no-think sampling
-  model_id: 'MiniCPM5-2B-q4f16_1-MLC',
-  model: 'https://huggingface.co/ozhyhinas/MiniCPM5-2B-q4f16_1-MLC',
-  model_lib: 'https://huggingface.co/ozhyhinas/MiniCPM5-2B-q4f16_1-MLC/resolve/main/libs/MiniCPM5-2B-q4f16_1-MLC-webgpu.wasm',
-  vram_required_MB: 2000, // estimate (weights are 1.42 GB)
-  required_features: ['shader-f16'],
-  overrides: { context_window_size: 4096 },
-}];
-// inline SVG: flag emoji don't render on Windows (they show up as the letters "IT")
-const IT_FLAG = '<svg viewBox="0 0 3 2" width="18" height="12" style="vertical-align:-1px;margin-left:6px;border-radius:2px" role="img" aria-label="Italiano"><title>Modello nativo italiano</title><rect width="1" height="2" fill="#009246"/><rect x="1" width="1" height="2" fill="#fff"/><rect x="2" width="1" height="2" fill="#ce2b37"/><rect width="3" height="2" fill="none" stroke="rgba(0,0,0,.15)" stroke-width=".08"/></svg>';
-const ggufModels = () => [...GGUF_CATALOG, ...customModels.filter(m => m.gguf)];
-const curRec = () => [...allModels(), ...ggufModels()].find(m => m.model_id === currentModelId);
-const noThink = () => !!curRec()?.noThink;
+const curRec = () => allModels().find(m => m.model_id === currentModelId);
 const isVlm = () => curRec()?.model_type === webllm.ModelType.VLM;
-
-// Base models have no chat template: plain "### Utente / ### Assistente" format, cut at the next "###".
-function basePrompt(msgs) {
-  const sys = msgs.find(m => m.role === 'system')?.content;
-  const turns = msgs.filter(m => m.role !== 'system')
-    .map(m => `### ${m.role === 'user' ? 'Utente' : 'Assistente'}:\n${m.content}\n`).join('\n');
-  return (sys ? sys + '\n\n' : '') + turns + '\n### Assistente:\n';
-}
-
-// ChatML (MiniCPM5 & co.). bos: MiniCPM needs a leading <s>; without it the output degenerates into "***" lines. noThink pre-fills an empty <think> block, as the model's own template does for enable_thinking=false.
-function chatmlPrompt(msgs, noThink, bos = '') {
-  return bos + msgs.map(m => `<|im_start|>${m.role}\n${m.content}<|im_end|>\n`).join('')
-    + '<|im_start|>assistant\n' + (noThink ? '<think>\n\n</think>\n\n' : '');
-}
-
-// Returns an object shaped like the WebLLM engine (chat.completions.create + interruptGenerate)
-async function loadGguf(rec, onProgress) {
-  const V = 'https://cdn.jsdelivr.net/npm/@wllama/wllama@3.6.1/esm/';
-  const { Wllama } = await import(V + 'index.js');
-  let w;
-  // ponytail: CPU only (n_gpu_layers 0); single thread unless the page is cross-origin isolated. Raise it to try wllama's WebGPU.
-  const init = async prog => {
-    w = new Wllama({ default: V + 'wasm/wllama.wasm' });
-    await w.loadModelFromUrl(rec.gguf, { n_ctx: rec.n_ctx || 2048, n_gpu_layers: 0, progressCallback: prog });
-  };
-  await init(({ loaded, total }) => onProgress(loaded / total));
-  const chatml = rec.format === 'chatml';
-  const stops = chatml ? ['<|im_end|>', '</s>'] : ['###'];
-  const hold = Math.max(...stops.map(x => x.length)) - 1; // a stop marker may be split across chunks
-  let ctrl, dirty = false;
-  // wllama sometimes ends up with a desynchronised worker ("Invalid typed array length" = its "GLUE" header read as a
-  // length). The model file is cached, so rebuilding the instance is cheap: do it once and retry.
-  const reload = async () => { try { await w.exit(); } catch {} await init(() => {}); dirty = false; };
-  return {
-    interruptGenerate: () => ctrl?.abort(),
-    unload: () => w.exit(),
-    chat: { completions: { async create(req) {
-      ctrl = new AbortController();
-      const start = () => w.createCompletion({
-        prompt: chatml ? chatmlPrompt(req.messages, rec.noThink, rec.bos) : basePrompt(req.messages), max_tokens: req.max_tokens,
-        temperature: req.temperature, top_p: req.top_p, stop: stops, stream: true, abortSignal: ctrl.signal,
-      });
-      let stream;
-      try {
-        if (dirty) await reload();
-        stream = await start();
-      } catch (e) {
-        if (ctrl.signal.aborted) throw e;
-        console.warn('wllama failed, rebuilding the instance and retrying once:', e);
-        await reload();
-        stream = await start();
-      }
-      return (async function* () {
-        let buf = '', sent = 0;
-        const out = t => ({ choices: [{ delta: { content: t } }] });
-        try {
-          for await (const c of stream) {
-            buf += c.choices[0]?.text ?? '';
-            let i = -1;
-            for (const x of stops) { const j = buf.indexOf(x); if (j >= 0 && (i < 0 || j < i)) i = j; }
-            const end = i >= 0 ? i : Math.max(sent, buf.length - hold);
-            if (end > sent) { yield out(buf.slice(sent, end)); sent = end; }
-            if (i >= 0) { ctrl.abort(); return; }
-          }
-        } catch (e) { if (!ctrl.signal.aborted) { dirty = true; throw e; } } // aborted = user stop / we cut at the marker
-        if (sent < buf.length) yield out(buf.slice(sent));
-      })();
-    } } },
-  };
-}
 
 // navigator.gpu can exist while requestAdapter() still returns null (hardware acceleration off, blocklisted driver, VM…)
 // Hybrid laptops: the preferred dGPU may be blocklisted while the iGPU works (e.g. MX250 D3D11 blocked, Iris D3D12 ok),
@@ -611,6 +506,10 @@ async function initModelPicker() {
   const { ok, f16, why } = await detectGpu();
   gpuOk = ok;
   const precision = f16 ? 'q4f16' : 'q4f32';
+  // ModelRecord (web-llm config.ts): chat models only (LLM/VLM, not embedding), features the GPU has, VRAM within reach
+  const usable = m => (m.model_type ?? webllm.ModelType.LLM) !== webllm.ModelType.embedding
+    && !(m.required_features || []).some(f => f === 'shader-f16' && !f16)
+    && !(m.vram_required_MB > 4000);
   const all = webllm.prebuiltAppConfig.model_list;
 
   console.log(`📦 WebLLM: ${all.length} models, GPU adapter: ${gpuOk}, f16: ${f16}`);
@@ -624,7 +523,7 @@ async function initModelPicker() {
   for (const m of all) {
     const id = m.model_id.toLowerCase();
     if (!DESIRED.some(kw => id.includes(kw))) continue;
-    if (m.vram_required_MB && m.vram_required_MB > 4000) continue;
+    if (!usable(m)) continue;
     if (!id.includes(precision)) continue;
     const base = m.model_id.replace(/q4f(16|32)_\d/g, 'Q');
     if (seen.has(base)) continue;
@@ -637,7 +536,7 @@ async function initModelPicker() {
     for (const m of all) {
       const id = m.model_id.toLowerCase();
       if (!DESIRED.some(kw => id.includes(kw))) continue;
-      if (m.vram_required_MB && m.vram_required_MB > 4000) continue;
+      if (!usable(m)) continue;
       if (!matched.some(x => x.model_id === m.model_id)) matched.push(m);
     }
   }
@@ -646,8 +545,7 @@ async function initModelPicker() {
   const PREF = ['qwen2.5-1.5b', 'llama-3.2-3b', 'gemma-2-2b', 'llama-3.2-1b', 'qwen2.5-3b'];
   const rank = m => { const i = PREF.findIndex(k => m.model_id.toLowerCase().includes(k)); return i < 0 ? 99 : i; };
   matched.sort((a, b) => rank(a) - rank(b) || (a.vram_required_MB || 500) - (b.vram_required_MB || 500));
-  matched.unshift(...customModels.filter(m => !m.gguf)); // yours first → preselected
-  matched.push(...COMMUNITY_MLC);                        // community builds last, never the default
+  matched.unshift(...customModels); // yours first → preselected
 
   console.log(`✅ ${matched.length} compatible models`);
   matched.forEach(m => console.log(`  ${m.model_id}`));
@@ -666,7 +564,7 @@ async function initModelPicker() {
     const label = m.model_id.replace(/-MLC$/i,'').replace(/-q4f\d+_\d+/i,'').replace(/-[Ii]nstruct/,'');
     const prec = m.model_id.includes('q4f16') ? 'f16' : 'f32';
     const custom = customModels.includes(m);
-    const vram = [custom && (m.model.startsWith(LOCAL_BASE) ? '★ locale' : '★ personalizzato'), m.community && '★ community · EN/中文', m.model_type === webllm.ModelType.VLM && '🖼 vision', m.vram_required_MB && `~${m.vram_required_MB} MB`].filter(Boolean).join(' · ');
+    const vram = [custom && (m.model.startsWith(LOCAL_BASE) ? '★ locale' : '★ personalizzato'), m.model_type === webllm.ModelType.VLM && '🖼 vision', m.vram_required_MB && `~${m.vram_required_MB} MB`].filter(Boolean).join(' · ');
 
     const btn = document.createElement('button');
     btn.className = 'model-option';
@@ -706,46 +604,16 @@ async function initModelPicker() {
     $picker.appendChild(btn);
   });
 
-  // GGUF section (wllama)
-  const grp = document.createElement('div');
-  grp.style.cssText = 'font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--ash);padding:10px 4px 0';
-  grp.textContent = 'GGUF · wllama (sperimentale, modelli base)';
-  $picker.appendChild(grp);
-  ggufModels().forEach(m => {
-    const btn = document.createElement('button');
-    btn.className = 'model-option gguf';
-    if (m.format === 'chatml') btn.dataset.chat = '1';
-    btn.dataset.modelId = m.model_id;
-    btn.innerHTML = `<div class="model-radio"></div><div class="model-info"><div class="model-name">${escHtml(m.model_id)}${m.it ? IT_FLAG : ''}</div>
-      <div class="model-desc">GGUF · CPU${m.size ? ` · ~${m.size} MB` : ''}${m.size > 1000 ? ' · ⚠ rischia di non entrare in memoria' : ''}${m.note ? ` · ${escHtml(m.note)}` : ''}</div></div>`;
-    btn.onclick = () => {
-      document.querySelectorAll('.model-option').forEach(el => el.classList.remove('selected'));
-      btn.classList.add('selected');
-      window._selectedModelId = m.model_id;
-      $btnStart.disabled = false;
-    };
-    if (customModels.includes(m)) btn.oncontextmenu = async e => { // right-click → remove your own GGUF
-      e.preventDefault();
-      if (!await ask(`Rimuovere "${m.model_id}" dalla lista?`, { ok: 'Rimuovi' })) return;
-      customModels = customModels.filter(x => x !== m);
-      localStorage.setItem('neo-custom', JSON.stringify(customModels));
-      initModelPicker();
-    };
-    $picker.appendChild(btn);
-  });
-
   if (!gpuOk) {
     const warn = document.createElement('div');
     warn.style.cssText = 'padding:12px 14px;border:1px solid var(--accent);background:var(--accent-soft);border-radius:var(--r-md);font-size:13px;line-height:1.55;color:var(--ink)';
     warn.innerHTML = '<b>WebGPU non disponibile</b> in questo browser: i modelli WebLLM non partiranno. '
-      + 'Usa i modelli <b>GGUF (CPU)</b> qui sotto, oppure attiva l\'accelerazione hardware '
+      + 'Attiva l\'accelerazione hardware '
       + '(<code>chrome://settings/system</code>), controlla <code>chrome://gpu</code> e aggiorna i driver della scheda video. '
       + '<b>Su Brave</b> abilita <code>brave://flags/#enable-unsafe-webgpu</code> e riavvia il browser.'
       + `<br><small>Dettaglio: ${why}</small>`;
     $picker.prepend(warn);
-    document.querySelectorAll('.model-option:not(.gguf)').forEach(el => { el.style.opacity = '.5'; });
-    // preselect a CPU chat model (an instruct one, not a base model)
-    document.querySelector('.model-option.gguf[data-chat="1"]')?.click();
+    document.querySelectorAll('.model-option').forEach(el => { el.style.opacity = '.5'; });
   }
 }
 
@@ -762,9 +630,6 @@ window.startModel = async function() {
   $progressFill.style.width = '0%';
   $('btn-back').style.display = 'none';
   await unloadEngine();
-
-  const gg = ggufModels().find(m => m.model_id === modelId);
-  if (gg) return startGguf(gg);
 
   // Try primary, then opposite precision as fallback
   const toTry = [modelId];
@@ -810,7 +675,7 @@ window.startModel = async function() {
       if (tryId === toTry[toTry.length - 1]) {
         const msg = err?.message || '';
         $progressText.textContent = /compatible GPU/i.test(msg)
-          ? 'WebGPU non disponibile: scegli un modello GGUF (CPU) o attiva l\'accelerazione hardware.'
+          ? 'WebGPU non disponibile: attiva l\'accelerazione hardware del browser.'
           : 'Errore: ' + msg.slice(0, 80);
         $btnStart.textContent = 'Inizia';
         $btnStart.disabled = false;
@@ -874,7 +739,7 @@ window.ejectModel = async function() {
   toast('Modello espulso: memoria liberata.');
 };
 
-// Everything the browser keeps on disk for models: CacheStorage (WebLLM + imported folders) and OPFS (wllama GGUF)
+// Everything the browser keeps on disk for models: CacheStorage (WebLLM + imported folders)
 async function storageItems() {
   const items = [];
   const groups = new Map();
@@ -899,17 +764,6 @@ async function storageItems() {
       }
     } });
   }
-  try {
-    const d = await (await navigator.storage.getDirectory()).getDirectoryHandle('cache');
-    const names = [];
-    for await (const [name] of d.entries()) names.push(name);
-    for (const name of names.filter(n => n.endsWith('.gguf'))) {
-      const f = await (await d.getFileHandle(name)).getFile();
-      const hash = name.slice(0, 40);
-      items.push({ label: 'GGUF ' + name.replace(/^[0-9a-f]{40}_/, ''), size: f.size,
-        del: async () => { for (const n of names.filter(n => n.includes(hash))) await d.removeEntry(n); } });
-    }
-  } catch {} // no OPFS / no wllama cache yet
   return items.sort((a, b) => b.size - a.size);
 }
 
@@ -950,25 +804,6 @@ window.clearAllStorage = async function() {
   initModelPicker();
   toast('Cache dei modelli svuotata.');
 };
-
-async function startGguf(rec) {
-  try {
-    $progressText.textContent = 'Carico wllama…';
-    engine = await loadGguf(rec, p => {
-      $progressFill.style.width = Math.round(p * 100) + '%';
-      $progressText.textContent = `Download ${Math.round(p * 100)}%`;
-    });
-    currentModelId = rec.model_id;
-  } catch (err) {
-    console.error('❌ ' + rec.model_id, err);
-    engine = null;
-    $progressText.textContent = 'Errore: ' + String(err?.message || err).slice(0, 80);
-    $btnStart.textContent = 'Inizia';
-    $btnStart.disabled = false;
-    return;
-  }
-  enterChat(rec.model_id);
-}
 
 function enterChat(name) {
   $statusDot.className = 'dot on';
@@ -1186,7 +1021,7 @@ async function generate(conv, op = null) {
 
     // sampling: text operations fixed; chat: agent > settings > model default > family preset > 0.5/0.9
     const think = !stateless && !!settings.thinking && isQwen3(currentModelId);
-    const dflt = curRec()?.sampling ?? (think ? THINK_SAMPLING : samplingFor(currentModelId));
+    const dflt = think ? THINK_SAMPLING : samplingFor(currentModelId);
     const started = engine.chat.completions.create({
       messages: apiMsgs,
       stream: true,
@@ -1196,7 +1031,7 @@ async function generate(conv, op = null) {
       ...(settings.presence_penalty != null ? { presence_penalty: settings.presence_penalty } : {}),
       max_tokens: op ? op.maxTok : (ag.max_tokens ?? settings.max_tokens ?? (think ? 2048 : 512)),
       ...(think ? { extra_body: { enable_thinking: true } }
-        : noThink() || isQwen3(currentModelId) ? { extra_body: { enable_thinking: false } } : {}), // no <think> block unless asked
+        : isQwen3(currentModelId) ? { extra_body: { enable_thinking: false } } : {}), // no <think> block unless asked
     });
     started.catch(() => {}); // if stop wins the race, a later rejection must not surface
     const reply = await Promise.race([started, stopP]);
@@ -1230,9 +1065,7 @@ async function generate(conv, op = null) {
 
   } catch (err) {
     const m = String(err?.message || err);
-    bodyEl.textContent = /typed array|out of memory|memory access|allocation/i.test(m)
-      ? 'Errore: memoria WebAssembly esaurita o motore in stato errato (' + m + '). Il modello GGUF potrebbe essere troppo grande per il browser (oltre ~1 GB è rischioso): prova un modello più piccolo, per esempio MiniCPM5-1B o Minerva-350M.'
-      : 'Errore: ' + m;
+    bodyEl.textContent = 'Errore: ' + m;
   } finally {
     currentStop = null;
     isGenerating = false;
@@ -1271,7 +1104,7 @@ window.stopGen = function() {
 
 // Status line: backend, speed (chunks ≈ tokens), JS heap (Chromium only), model cache on disk.
 async function showStats(tps) {
-  const bits = [curRec()?.gguf ? 'CPU (wasm)' : gpuOk ? 'WebGPU' : 'CPU'];
+  const bits = [gpuOk ? 'WebGPU' : 'CPU'];
   if (tps) bits.push(`${tps.toFixed(1)} tok/s`);
   if (performance.memory) bits.push(`RAM JS ${fmtSize(performance.memory.usedJSHeapSize)}`);
   try { const u = (await navigator.storage.estimate()).usage; if (u != null) bits.push(`cache ${fmtSize(u)}`); } catch {}

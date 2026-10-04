@@ -11,7 +11,6 @@ Il nome compare anche nell'app, nel piè della barra laterale («Sviluppato da s
 | Componente | Uso in NEO |
 |---|---|
 | [WebLLM](https://webllm.mlc.ai/) / [MLC-AI](https://mlc.ai/) | inferenza su GPU via WebGPU, catalogo dei modelli |
-| [wllama](https://github.com/ngxson/wllama) 3.6.1 | llama.cpp in WebAssembly, per i modelli GGUF |
 | [Redact](https://github.com/desert-ant-labs) (Desert Ant Labs) | maschera i dati personali prima della ricerca web |
 | [Gist](https://github.com/desert-ant-labs) (Desert Ant Labs) | etichetta di argomento delle chat, in locale |
 | [PDF.js](https://mozilla.github.io/pdf.js/) 4.10.38 | lettura dei PDF |
@@ -24,7 +23,7 @@ L'identità grafica si ispira a Desert Ant.
 
 ## Modelli
 
-I modelli appartengono ai rispettivi autori e hanno le proprie licenze: Alibaba (Qwen), Meta (Llama), Microsoft (Phi), Google (Gemma), Hugging Face (SmolLM), TinyLlama, Sapienza NLP (Minerva; quantizzazioni GGUF di mradermacher), OpenBMB (MiniCPM5). Verifica la licenza di ogni modello prima di un uso commerciale. La build community di MiniCPM5-2B è di un autore terzo.
+I modelli appartengono ai rispettivi autori e hanno le proprie licenze: Alibaba (Qwen), Meta (Llama), Microsoft (Phi), Google (Gemma), Hugging Face (SmolLM), TinyLlama. Verifica la licenza di ogni modello prima di un uso commerciale. La build community di MiniCPM5-2B è di un autore terzo.
 
 ## Licenza
 
