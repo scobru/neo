@@ -37,6 +37,7 @@ page.on('console', m => { if (m.type() === 'error' && !/Failed to load resource|
 const WEBLLM_STUB = `export const prebuiltAppConfig = { model_list: [
   { model_id: 'Stub-A-q4f16_1-MLC', model_lib: 'https://example.invalid/a.wasm', vram_required_MB: 300 },
   { model_id: 'Stub-B-q4f16_1-MLC', model_lib: 'https://example.invalid/b.wasm', vram_required_MB: 900 }] };
+export const ModelType = { LLM: 0, embedding: 1, VLM: 2 };
 export const CreateMLCEngine = async () => { throw new Error('stub'); };
 export const CreateWebWorkerMLCEngine = CreateMLCEngine;`;
 await page.route(/esm\.run\/@mlc-ai\/web-llm/, r => r.fulfill({ contentType: 'text/javascript', body: WEBLLM_STUB }));
