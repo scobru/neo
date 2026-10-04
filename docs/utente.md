@@ -97,7 +97,7 @@ Un agente è un **system prompt** con parametri facoltativi. Si sceglie dal menu
 - L'agente predefinito è *Neo*: «Sei Neo, assistente AI. Rispondi sempre in italiano, in modo breve e diretto. Se non sai la risposta, dillo.»
 - Ogni chat ricorda il proprio agente. Le operazioni ⚡ ignorano l'agente e usano sempre i loro parametri fissi.
 
-Valori predefiniti della chat: temperatura 0,5, top-p 0,9, 512 token, penalità di frequenza 0,3. Se non imposti nulla, ogni famiglia di modelli usa i valori consigliati dal suo autore (come in web-llm-chat); le **Impostazioni** (🎚️) e l'agente hanno la precedenza.
+Valori predefiniti della chat: temperatura 0,5, top-p 0,9, 512 token, penalità di frequenza 0,3. Se non imposti nulla, ogni famiglia di modelli usa i valori consigliati dal suo autore (come in web-llm-chat); le **Impostazioni** (icona con i cursori) e l'agente hanno la precedenza.
 
 ## Cambiare modello, espellere, liberare spazio
 

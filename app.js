@@ -274,7 +274,7 @@ function renderChips() {
   pending.forEach((f, i) => {
     const c = document.createElement('span');
     c.className = 'chip' + (f.error ? ' err' : '');
-    c.textContent = (f.img ? '🖼 ' : '📎 ') + f.name + (f.error ? ` — ${f.error}` : f.img ? '' : f.text == null ? ' …' : f.text.trim() ? '' : ' — nessun testo');
+    c.textContent = (f.img ? 'Immagine: ' : '📎 ') + f.name + (f.error ? ` — ${f.error}` : f.img ? '' : f.text == null ? ' …' : f.text.trim() ? '' : ' — nessun testo');
     const x = document.createElement('button');
     x.textContent = '✕';
     x.onclick = () => { pending.splice(i, 1); renderChips(); };
@@ -564,7 +564,7 @@ async function initModelPicker() {
     const label = m.model_id.replace(/-MLC$/i,'').replace(/-q4f\d+_\d+/i,'').replace(/-[Ii]nstruct/,'');
     const prec = m.model_id.includes('q4f16') ? 'f16' : 'f32';
     const custom = customModels.includes(m);
-    const vram = [custom && (m.model.startsWith(LOCAL_BASE) ? '★ locale' : '★ personalizzato'), m.model_type === webllm.ModelType.VLM && '🖼 vision', m.vram_required_MB && `~${m.vram_required_MB} MB`].filter(Boolean).join(' · ');
+    const vram = [custom && (m.model.startsWith(LOCAL_BASE) ? '★ locale' : '★ personalizzato'), m.model_type === webllm.ModelType.VLM && 'vision', m.vram_required_MB && `~${m.vram_required_MB} MB`].filter(Boolean).join(' · ');
 
     const btn = document.createElement('button');
     btn.className = 'model-option';
@@ -944,7 +944,7 @@ window.sendMessage = async function() {
     : { role: 'user', content: text };
   if (imgs.length && isVlm()) {
     msg.imgs = imgs.map(f => f.img);
-    msg.shown = (msg.shown ?? text) + '\n\n🖼 ' + imgs.map(f => f.name).join(', ');
+    msg.shown = (msg.shown ?? text) + '\n\nImmagine: ' + imgs.map(f => f.name).join(', ');
   }
   conv.messages.push(msg);
   appendMsgEl('user', msg.shown ?? text, msg.opLabel);
