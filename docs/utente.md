@@ -2,7 +2,7 @@
 
 ## Requisiti
 
-- **Browser:** Chrome o Edge 113+, Firefox 139+. Per i modelli su GPU serve WebGPU; per i modelli GGUF su CPU no.
+- **Browser:** Chrome o Edge 113+, Firefox 139+. Serve WebGPU.
 - **Memoria:** da circa 200 MB a 2 GB di RAM libera, secondo il modello.
 - **Connessione:** serve per il primo scaricamento dell'app e del modello. Dopo, vedi [Offline](offline.md).
 
@@ -17,14 +17,12 @@ Alla prima apertura compare **Scegli un modello**. L'elenco mostra, in questo or
 
 1. i tuoi modelli personalizzati (segnati con ★),
 2. i modelli WebGPU compatibili del catalogo WebLLM (precisione `f16` o `f32` secondo la tua scheda grafica),
-3. le build community, in fondo e mai preselezionate,
-4. la sezione **GGUF · wllama**, per la CPU.
 
 Il primo modello della lista è già selezionato. Premi **Inizia**: il modello viene scaricato (con barra di avanzamento) e poi si apre la chat. Se la variante `f16` non parte, NEO prova da solo la `f32`, e viceversa.
 
 Tasto destro su un modello personalizzato: lo rimuove dalla lista.
 
-**Senza WebGPU** (accelerazione hardware spenta, driver, macchina virtuale) compare un avviso, i modelli WebLLM vengono attenuati e NEO preseleziona un modello GGUF su CPU.
+**Senza WebGPU** (accelerazione hardware spenta, driver, macchina virtuale) compare un avviso con i passi per attivarla e i modelli vengono attenuati.
 
 I dettagli sui modelli sono in [Modelli](modelli.md).
 
@@ -99,7 +97,7 @@ Un agente è un **system prompt** con parametri facoltativi. Si sceglie dal menu
 - L'agente predefinito è *Neo*: «Sei Neo, assistente AI. Rispondi sempre in italiano, in modo breve e diretto. Se non sai la risposta, dillo.»
 - Ogni chat ricorda il proprio agente. Le operazioni ⚡ ignorano l'agente e usano sempre i loro parametri fissi.
 
-Valori predefiniti della chat: temperatura 0,5, top-p 0,9, 512 token, penalità di frequenza 0,3. Alcuni modelli (MiniCPM5) hanno valori consigliati propri.
+Valori predefiniti della chat: temperatura 0,5, top-p 0,9, 512 token, penalità di frequenza 0,3. Se non imposti nulla, ogni famiglia di modelli usa i valori consigliati dal suo autore (come in web-llm-chat); le **Impostazioni** (🎚️) e l'agente hanno la precedenza.
 
 ## Cambiare modello, espellere, liberare spazio
 
@@ -107,15 +105,14 @@ Nel piè della barra laterale:
 
 - **Nome del modello / ⇄ Cambia:** torna alla scelta del modello senza perdere le chat (**← Torna alla chat** per annullare). Non si può cambiare mentre sta rispondendo.
 - **⏏ Espelli:** scarica il modello dalla RAM e dalla GPU e torna alla scelta. Le chat restano.
-- **🧹 Spazio e memoria:** elenca i modelli scaricati nel browser (WebLLM, GGUF, cartelle importate) con la dimensione, e permette di eliminarli uno a uno o **tutti**. Mostra anche lo spazio usato dal sito sul totale disponibile. Le chat non vengono toccate.
+- **🧹 Spazio e memoria:** elenca i modelli scaricati nel browser (WebLLM, cartelle importate) con la dimensione, e permette di eliminarli uno a uno o **tutti**. Mostra anche lo spazio usato dal sito sul totale disponibile. Le chat non vengono toccate.
 
 ## Problemi comuni
 
 | Sintomo | Causa probabile | Cosa fare |
 |---|---|---|
-| «WebGPU non disponibile» | accelerazione hardware spenta o driver | attiva l'accelerazione in `chrome://settings/system`, controlla `chrome://gpu`, aggiorna i driver; su Brave abilita `brave://flags/#enable-unsafe-webgpu`; oppure usa un modello GGUF |
-| Errore di memoria con un GGUF | modello troppo grande per WebAssembly (oltre circa 1 GB è rischioso) | prova MiniCPM5-1B o Minerva-350M |
-| Il modello non risponde bene alle istruzioni | i modelli **Minerva** sono *base*, non addestrati a seguire istruzioni | usa un modello instruct (Qwen, Llama, Gemma, MiniCPM5) |
+| «WebGPU non disponibile» | accelerazione hardware spenta o driver | attiva l'accelerazione in `chrome://settings/system`, controlla `chrome://gpu`, aggiorna i driver; su Brave abilita `brave://flags/#enable-unsafe-webgpu` |
+| Il modello non risponde bene alle istruzioni | modello troppo piccolo o non addestrato a seguire istruzioni | usa un modello instruct (Qwen, Llama, Gemma, Phi) |
 | «Ricerca web non eseguita» | Redact non si è caricato (offline o rete bloccata) | riprova con la rete attiva; la query non viene mai inviata senza filtro |
 | Le chat spariscono | `localStorage` pieno (circa 5 MB) o dati del sito cancellati | elimina chat vecchie; il salvataggio è silenzioso |
 | Risposta troppo corta | tetto di token dell'agente o dell'operazione | alza «Max token» nell'agente |

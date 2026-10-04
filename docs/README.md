@@ -5,7 +5,7 @@ NEO è un assistente AI che gira **interamente nel browser** (WebGPU o CPU), sen
 | Documento | Per chi | Contenuto |
 |---|---|---|
 | [Guida utente](utente.md) | chi usa NEO | primo avvio, chat, operazioni sul testo, allegati, ricerca web, agenti, memoria e spazio |
-| [Modelli](modelli.md) | chi sceglie o aggiunge modelli | catalogo, WebGPU e GGUF, modelli personalizzati, cartelle dal disco, Micro-Neo |
+| [Modelli](modelli.md) | chi sceglie o aggiunge modelli | catalogo WebGPU, modelli personalizzati, cartelle dal disco, Micro-Neo |
 | [Privacy e dati](privacy.md) | tutti | cosa resta sul dispositivo, cosa esce, dove sono salvati i dati |
 | [Offline e installazione](offline.md) | chi vuole usare NEO senza rete | service worker, PWA, cosa funziona offline |
 | [Architettura](architettura.md) | chi sviluppa | struttura del codice, flussi, convenzioni, formato dei dati |
@@ -16,7 +16,7 @@ NEO è un assistente AI che gira **interamente nel browser** (WebGPU o CPU), sen
 ## In breve
 
 - **Nessun server.** Le chat, gli agenti e le impostazioni stanno nel `localStorage` del browser. I modelli stanno nella cache del browser.
-- **Due motori.** [WebLLM](https://webllm.mlc.ai/) per i modelli su GPU (WebGPU) e [wllama](https://github.com/ngxson/wllama) (llama.cpp in WebAssembly) per i modelli GGUF su CPU.
+- **Un solo motore.** [WebLLM](https://webllm.mlc.ai/) esegue i modelli sulla GPU (WebGPU).
 - **Chat libera e operazioni sul testo.** Riepilogo, parafrasi, tono, traduzione, post social e altre, con prompt identici a quelli del fine-tuning.
 - **Allegati in locale.** Testo, codice, PDF e immagini (OCR) vengono letti nel browser.
 - **Ricerca web opzionale.** Prima di uscire dal dispositivo, la domanda viene ripulita dai dati personali.

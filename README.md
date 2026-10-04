@@ -60,9 +60,7 @@ Guida completa in **[docs/](docs/README.md)**: [guida utente](docs/utente.md), [
 Dalla schermata di scelta modello, **+ Modello personalizzato**:
 
 - **MLC (WebGPU):** URL dei pesi + `.wasm` (oppure `@modello-del-catalogo` per riusarne uno), o una cartella MLC dal disco.
-- **GGUF (CPU, sperimentale):** URL di un file `.gguf`, eseguito con [wllama](https://github.com/ngxson/wllama). Nella lista ci sono già i modelli **Minerva** (Sapienza NLP, italiano/inglese) 350M, 1B e 3B. Sono modelli *base*: non seguono bene le istruzioni senza fine-tuning. Ci sono anche **MiniCPM5-1B e 2B** (OpenBMB, GGUF ufficiali, modelli chat in inglese/cinese: l'italiano è debole).
-- **MLC community:** una build WebGPU di MiniCPM5-2B di un autore terzo (non OpenBMB) è in lista come "community". Il suo `.wasm` gira nel tuo browser: usala solo se ti fidi.
-- **Senza WebGPU** (accelerazione hardware spenta, driver, VM): i modelli WebLLM non partono, NEO lo segnala e preseleziona un modello GGUF su CPU.
+- **Senza WebGPU** (accelerazione hardware spenta, driver, VM): i modelli non partono e NEO lo segnala con i passi per attivarla.
 
 ### Ricerca web (🌐)
 
@@ -71,7 +69,7 @@ Senza chiave usa **Wikipedia** (italiana). Con una chiave gratuita di **[Serper]
 ### Memoria e spazio
 
 - **⏏ Espelli** (piè della sidebar): scarica il modello da RAM/GPU e torna alla scelta; le chat restano.
-- **🧹 Spazio e memoria**: elenca i modelli scaricati nel browser (WebLLM, GGUF, cartelle importate), con la dimensione, e permette di eliminarli uno a uno o tutti.
+- **🧹 Spazio e memoria**: elenca i modelli scaricati nel browser (WebLLM, cartelle importate), con la dimensione, e permette di eliminarli uno a uno o tutti.
 
 ### Uso offline (PWA)
 
@@ -85,7 +83,6 @@ Un service worker (`sw.js`) tiene in cache l'app e le librerie da CDN. Apri NEO 
 ## Tech Stack
 
 - [WebLLM](https://webllm.mlc.ai/) — Inferenza LLM nel browser via WebGPU
-- [wllama](https://github.com/ngxson/wllama) — llama.cpp in WebAssembly per i modelli GGUF
 - [MLC-AI](https://mlc.ai/) — Compilazione modelli per il browser
 - Vanilla HTML/CSS/JS — Nessun framework né build; le librerie arrivano da CDN con versioni fissate (vedi `index.html`)
 
@@ -93,7 +90,7 @@ Un service worker (`sw.js`) tiene in cache l'app e le librerie da CDN. Apri NEO 
 
 Sviluppato da **[scobru](https://github.com/scobru)** — codice sorgente: [github.com/scobru/neo](https://github.com/scobru/neo).
 
-Costruito sopra [WebLLM](https://webllm.mlc.ai/), [wllama](https://github.com/ngxson/wllama), [MLC-AI](https://mlc.ai/), [Redact e Gist](https://github.com/desert-ant-labs) di Desert Ant Labs, [PDF.js](https://mozilla.github.io/pdf.js/) e [Tesseract.js](https://tesseract.projectnaptha.com/). I modelli appartengono ai rispettivi autori (Hugging Face, Alibaba, Meta, Microsoft, Google, Sapienza NLP, OpenBMB).
+Costruito sopra [WebLLM](https://webllm.mlc.ai/), [MLC-AI](https://mlc.ai/), [Redact e Gist](https://github.com/desert-ant-labs) di Desert Ant Labs, [PDF.js](https://mozilla.github.io/pdf.js/) e [Tesseract.js](https://tesseract.projectnaptha.com/). I modelli appartengono ai rispettivi autori (Hugging Face, Alibaba, Meta, Microsoft, Google, Sapienza NLP, OpenBMB).
 
 ## Licenza
 

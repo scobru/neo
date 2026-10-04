@@ -12,7 +12,6 @@ NEO non ha un server proprio e non ha account. **Le tue chat, gli agenti e le im
 | Tema chiaro/scuro | `localStorage` | `neo-theme` |
 | Chiave Serper (se la inserisci) | `localStorage`, **in chiaro** | `neo-serper` |
 | Pesi dei modelli WebLLM e cartelle importate | CacheStorage | `webllm/config`, `webllm/model`, `webllm/wasm` |
-| Modelli GGUF | OPFS (storage privato del sito), gestito da wllama | cartella `cache` |
 | App e librerie per l'uso offline | CacheStorage | `neo-shell-v1` |
 
 Note:
@@ -49,6 +48,6 @@ La ricerca è **opt-in**: è spenta all'avvio e va attivata a ogni sessione con 
 
 ## Rischi da conoscere
 
-- **Librerie da CDN.** Il codice di WebLLM, wllama, Redact, Gist, PDF.js e Tesseract viene caricato da CDN pubbliche e gira nella pagina. È lo stesso rischio di qualunque sito che usa una CDN. Per ridurlo si possono includere le librerie nel repo (non è fatto oggi).
+- **Librerie da CDN.** Il codice di WebLLM, Redact, Gist, PDF.js e Tesseract viene caricato da CDN pubbliche e gira nella pagina. È lo stesso rischio di qualunque sito che usa una CDN. Per ridurlo si possono includere le librerie nel repo (non è fatto oggi).
 - **Build community e modelli personalizzati.** Il `.wasm` di un modello gira nel tuo browser: usalo solo se ti fidi dell'autore.
 - **Backup.** I dati sono solo nel browser: se li cancelli, spariscono. Non c'è sincronizzazione tra dispositivi.

@@ -1,7 +1,7 @@
 // NEO service worker: keeps the app shell and the CDN libraries so NEO starts offline.
-// Model weights are NOT handled here: WebLLM / wllama store them on their own (CacheStorage / OPFS).
+// Model weights are NOT handled here: WebLLM stores them on its own (CacheStorage).
 // Bump VERSION to drop the old cache on the next release.
-const VERSION = 'neo-shell-v9';
+const VERSION = 'neo-shell-v10';
 const SHELL = ['./', 'index.html', 'style.css', 'app.js', 'ops.js', 'format.js', 'skills.js', 'models.js', 'logo.svg', 'manifest.webmanifest'];
 const LIB_HOSTS = ['esm.run', 'esm.sh', 'cdn.jsdelivr.net', 'fonts.googleapis.com', 'fonts.gstatic.com'];
 

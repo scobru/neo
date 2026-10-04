@@ -42,7 +42,7 @@ Il notebook (cella «Prompt condivisi») e `index.html` (`SYSTEM`, `TONES`, `PLA
 
 ## Esportazione
 
-### GGUF (per llama.cpp o per wllama in NEO)
+### GGUF (per llama.cpp)
 
 Il notebook converte in f16 e quantizza:
 
@@ -52,7 +52,7 @@ Il notebook converte in f16 e quantizza:
 | `micro-neo-q8_0.gguf` | ~1,6 GB | il più fedele al teacher |
 | `micro-neo-q4_k_m.gguf` | ~940 MB | il più leggero |
 
-Uso locale con llama.cpp: `llama-server -m micro-neo-q8_0.gguf --jinja --port 8081 -c 2048`. In NEO: **+ Modello personalizzato → file GGUF (URL)**. Sopra ~1 GB il browser può non avere memoria sufficiente.
+Uso locale con llama.cpp: `llama-server -m micro-neo-q8_0.gguf --jinja --port 8081 -c 2048`. NEO non legge i GGUF: per usarlo nel browser serve il formato MLC (vedi sotto).
 
 ### MLC (per la GPU in NEO)
 
