@@ -18,5 +18,42 @@ export function samplingFor(id) {
   return FAMILIES.find(([k]) => l.includes(k))?.[1];
 }
 
+// Remote engine: same surface app.js uses on WebLLM (chat.completions.create stream, interruptGenerate, unload),
+// talking to any OpenAI-compatible endpoint (Ollama /v1, vLLM, LM Studio, OpenRouter…).
+export const chatUrl = u => { u = u.trim().replace(/\/+$/, ''); return /\/chat\/completions$/.test(u) ? u : u.replace(/\/v1$/, '') + '/v1/chat/completions'; };
+
+export function remoteEngine({ url, key, model }, fetchFn = fetch) {
+  let ctl = null;
+  async function* stream(res) { // SSE: "data: {json}" lines, "data: [DONE]" ends
+    const rd = res.body.getReader(), dec = new TextDecoder();
+    let buf = '';
+    for (;;) {
+      const { value, done } = await rd.read();
+      if (done) return;
+      buf += dec.decode(value, { stream: true });
+      const lines = buf.split('\n'); buf = lines.pop();
+      for (const l of lines) {
+        const d = l.startsWith('data:') ? l.slice(5).trim() : '';
+        if (d === '[DONE]') return;
+        if (d) yield JSON.parse(d);
+      }
+    }
+  }
+  return {
+    chat: { completions: { async create({ extra_body, ...body }) {
+      ctl = new AbortController();
+      const res = await fetchFn(chatUrl(url), {
+        method: 'POST', signal: ctl.signal,
+        headers: { 'Content-Type': 'application/json', ...(key ? { Authorization: 'Bearer ' + key } : {}) },
+        body: JSON.stringify({ ...body, model }),
+      });
+      if (!res.ok) throw new Error(`${res.status} ${(await res.text()).slice(0, 200)}`);
+      return stream(res);
+    } } },
+    interruptGenerate: () => ctl?.abort(),
+    unload: () => ctl?.abort(),
+  };
+}
+
 // Qwen3 thinking: drop closed <think> blocks and an unclosed one still streaming
 export const stripThink = t => t.replace(/<think>[\s\S]*?<\/think>\s*/g, '').replace(/<think>[\s\S]*$/, '');

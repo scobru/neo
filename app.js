@@ -2,7 +2,7 @@ import * as webllm from 'https://esm.run/@mlc-ai/web-llm@0.2.85';
 import { SYSTEM, buildPrompt, OPS } from './ops.js';
 import { fmtMsg, escHtml } from './format.js';
 import { skillUrls, parseSkill } from './skills.js';
-import { samplingFor, THINK_SAMPLING, isQwen3, stripThink } from './models.js';
+import { samplingFor, THINK_SAMPLING, isQwen3, stripThink, remoteEngine } from './models.js';
 
 // project renamed leo → neo: carry over what was saved under the old name
 for (const k of ['theme', 'convs', 'agents', 'agent', 'custom']) {
@@ -376,6 +376,18 @@ const DESIRED = [
 let customModels = (() => {
   try { return (JSON.parse(localStorage.getItem('neo-custom')) || []).filter(m => !m.gguf); } catch { return []; } // GGUF support was removed
 })();
+// Remote endpoints (Ollama / OpenAI-compatible): {model_id, remote:{url,key,model}}. Not WebLLM records, so kept apart.
+let remoteModels = (() => { try { return JSON.parse(localStorage.getItem('neo-remote')) || []; } catch { return []; } })();
+const saveRemote = () => localStorage.setItem('neo-remote', JSON.stringify(remoteModels));
+window.addRemote = function() {
+  const remote = { url: $g('rm-url').value.trim(), model: $g('rm-model').value.trim(), key: $g('rm-key').value.trim() };
+  if (!/^https?:\/\//.test(remote.url) || !remote.model) return toast('Servono URL (http/https) e modello.');
+  const model_id = $g('rm-name').value.trim() || `${remote.model} @ ${new URL(remote.url).host}`;
+  remoteModels = [...remoteModels.filter(m => m.model_id !== model_id), { model_id, remote }];
+  saveRemote();
+  $g('rm-dialog').close();
+  initModelPicker();
+};
 const allModels = () => [...webllm.prebuiltAppConfig.model_list, ...customModels];
 
 // In-page replacements for confirm/alert/prompt: embedded browsers and some settings suppress the native ones,
@@ -545,7 +557,7 @@ async function initModelPicker() {
   const PREF = ['qwen2.5-1.5b', 'llama-3.2-3b', 'gemma-2-2b', 'llama-3.2-1b', 'qwen2.5-3b'];
   const rank = m => { const i = PREF.findIndex(k => m.model_id.toLowerCase().includes(k)); return i < 0 ? 99 : i; };
   matched.sort((a, b) => rank(a) - rank(b) || (a.vram_required_MB || 500) - (b.vram_required_MB || 500));
-  matched.unshift(...customModels); // yours first → preselected
+  matched.unshift(...remoteModels, ...customModels); // yours first → preselected
 
   console.log(`✅ ${matched.length} compatible models`);
   matched.forEach(m => console.log(`  ${m.model_id}`));
@@ -562,9 +574,10 @@ async function initModelPicker() {
   let selectedId = null;
   matched.forEach((m, i) => {
     const label = m.model_id.replace(/-MLC$/i,'').replace(/-q4f\d+_\d+/i,'').replace(/-[Ii]nstruct/,'');
-    const prec = m.model_id.includes('q4f16') ? 'f16' : 'f32';
-    const custom = customModels.includes(m);
-    const vram = [custom && (m.model.startsWith(LOCAL_BASE) ? '★ locale' : '★ personalizzato'), m.model_type === webllm.ModelType.VLM && 'vision', m.vram_required_MB && `~${m.vram_required_MB} MB`].filter(Boolean).join(' · ');
+    const prec = remote ? '' : m.model_id.includes('q4f16') ? 'f16' : 'f32';
+    const remote = !!m.remote;
+    const custom = remote || customModels.includes(m);
+    const vram = [remote && '☁ remoto', !remote && custom && (m.model.startsWith(LOCAL_BASE) ? '★ locale' : '★ personalizzato'), m.model_type === webllm.ModelType.VLM && 'vision', m.vram_required_MB && `~${m.vram_required_MB} MB`].filter(Boolean).join(' · ');
 
     const btn = document.createElement('button');
     btn.className = 'model-option';
@@ -587,9 +600,10 @@ async function initModelPicker() {
     if (custom) btn.oncontextmenu = async e => { // right-click → remove
       e.preventDefault();
       if (!await ask(`Rimuovere il modello "${m.model_id}" dalla lista?`, { ok: 'Rimuovi' })) return;
+      if (remote) { remoteModels = remoteModels.filter(x => x !== m); saveRemote(); } else {
       customModels = customModels.filter(x => x !== m);
       localStorage.setItem('neo-custom', JSON.stringify(customModels));
-      if (m.model.startsWith(LOCAL_BASE)) purgeLocal(m);
+      if (m.model.startsWith(LOCAL_BASE)) purgeLocal(m); }
       initModelPicker();
     };
 
@@ -613,7 +627,7 @@ async function initModelPicker() {
       + '<b>Su Brave</b> abilita <code>brave://flags/#enable-unsafe-webgpu</code> e riavvia il browser.'
       + `<br><small>Dettaglio: ${why}</small>`;
     $picker.prepend(warn);
-    document.querySelectorAll('.model-option').forEach(el => { el.style.opacity = '.5'; });
+    document.querySelectorAll('.model-option').forEach(el => { if (!remoteModels.some(m => m.model_id === el.dataset.modelId)) el.style.opacity = '.5'; });
   }
 }
 
@@ -632,6 +646,12 @@ window.startModel = async function() {
   await unloadEngine();
 
   // Try primary, then opposite precision as fallback
+  const rm = remoteModels.find(m => m.model_id === modelId);
+  if (rm) {
+    engine = remoteEngine(rm.remote);
+    currentModelId = modelId;
+    return enterChat(modelId);
+  }
   const toTry = [modelId];
   const alt = modelId.includes('q4f16')
     ? modelId.replace('q4f16', 'q4f32')

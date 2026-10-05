@@ -98,6 +98,22 @@
   </div>
 </dialog>
 
+<dialog class="ag-dialog" id="rm-dialog">
+  <label for="rm-name">Nome</label>
+  <input id="rm-name" placeholder="Ollama server">
+  <label for="rm-url">URL endpoint (OpenAI-compatibile; Ollama: http://host:11434)</label>
+  <input id="rm-url" placeholder="https://my-server:11434">
+  <label for="rm-model">Modello</label>
+  <input id="rm-model" placeholder="llama3.2:3b">
+  <label for="rm-key">API key (opzionale)</label>
+  <input id="rm-key" type="password" autocomplete="off">
+  <p style="font-size:12px;color:var(--ash)">La chiave resta nel browser. I messaggi vengono inviati al server indicato. Il server deve consentire CORS (Ollama: <code>OLLAMA_ORIGINS=*</code>).</p>
+  <div class="ag-actions">
+    <button class="primary" onclick="addRemote()">Aggiungi</button>
+    <button onclick="this.closest('dialog').close()">Chiudi</button>
+  </div>
+</dialog>
+
 <div class="sidebar-overlay" id="sidebar-overlay"></div>
 
 <div id="app">
@@ -152,6 +168,7 @@
         <button class="btn-new" id="btn-back" style="display:none;width:auto;padding:0 12px;margin:0 auto 10px;font-size:13px;" onclick="backToChat()">← Torna alla chat</button>
         <button class="btn-new" style="width:auto;padding:0 12px;margin:0 auto 10px;font-size:13px;" onclick="openStorage()">🧹 Spazio e memoria</button>
         <button class="btn-new" style="width:auto;padding:0 12px;margin:0 auto 16px;font-size:13px;" onclick="document.getElementById('cm-dialog').showModal()">+ Modello personalizzato</button>
+        <button class="btn-new" style="width:auto;padding:0 12px;margin:0 auto 16px;font-size:13px;" onclick="document.getElementById('rm-dialog').showModal()">+ Endpoint remoto (Ollama / API)</button>
         <button class="btn-start" id="btn-start" onclick="startModel()" disabled>Inizia</button>
 
         <div class="onboard-progress" id="onboard-progress">
