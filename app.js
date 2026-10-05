@@ -574,8 +574,8 @@ async function initModelPicker() {
   let selectedId = null;
   matched.forEach((m, i) => {
     const label = m.model_id.replace(/-MLC$/i,'').replace(/-q4f\d+_\d+/i,'').replace(/-[Ii]nstruct/,'');
-    const prec = remote ? '' : m.model_id.includes('q4f16') ? 'f16' : 'f32';
     const remote = !!m.remote;
+    const prec = remote ? '' : m.model_id.includes('q4f16') ? 'f16' : 'f32';
     const custom = remote || customModels.includes(m);
     const vram = [remote && '☁ remoto', !remote && custom && (m.model.startsWith(LOCAL_BASE) ? '★ locale' : '★ personalizzato'), m.model_type === webllm.ModelType.VLM && 'vision', m.vram_required_MB && `~${m.vram_required_MB} MB`].filter(Boolean).join(' · ');
 
