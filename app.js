@@ -192,8 +192,13 @@ async function webSearch(q) {
         body: JSON.stringify({ q, gl: 'it', hl: 'it', num: 4 }),
       });
       if (r.ok) {
-        const res = ((await r.json()).organic || []).filter(x => x.snippet)
+        const j = await r.json();
+        const res = (j.organic || []).filter(x => x.snippet)
           .map(x => ({ title: x.title, url: x.link, text: x.snippet.slice(0, 500) }));
+        const ab = j.answerBox; // Google's direct answer (weather, scores, conversions…)
+        if (ab) res.unshift({ title: ab.title || 'Risposta diretta', url: ab.link || 'https://www.google.com/search?q=' + encodeURIComponent(q),
+          text: (ab.answer || ab.snippet || JSON.stringify(ab)).slice(0, 500) });
+        await readPages(res.filter(x => x.url.startsWith('http')).slice(0, 3), q);
         if (res.length) return res;
       } else toast(`Serper ha risposto ${r.status} (chiave non valida o limite raggiunto): uso Wikipedia.`);
     } catch { toast('Serper non raggiungibile: uso Wikipedia.'); }
@@ -206,8 +211,19 @@ async function webSearch(q) {
   return pages.map(p => ({ title: p.title, url: 'https://it.wikipedia.org/?curid=' + p.pageid, text: p.extract }));
 }
 
+// Snippets are shallow: also read the top pages through Jina Reader (CORS-open; it sees the result URLs, not the query).
+// Keeps only the chunks that match the question. Failures/timeouts just leave the snippet.
+async function readPages(items, q) {
+  await Promise.allSettled(items.map(async it => {
+    const r = await fetch('https://r.jina.ai/' + it.url, { signal: AbortSignal.timeout(8000), headers: { 'X-Return-Format': 'text' } });
+    if (!r.ok) return;
+    const body = pickChunks((await r.text()).replace(/\n{3,}/g, '\n\n'), q, 1200);
+    if (body.length > it.text.length) it.text = body;
+  }));
+}
+
 async function webContext(text) {
-  const q = await safeQuery(text);
+  const q = (await safeQuery(text)).replace(/^(cerca|trova|cercami|dimmi|mostrami)\s+/i, '');
   if (!q) return null;
   const res = (await webSearch(q)).filter(r => r.text);
   if (!res.length) return null;
@@ -337,6 +353,40 @@ window.toggleWeb = async function(e) {
     await askSerperKey();
     if (localStorage.getItem('neo-serper') === null) localStorage.setItem('neo-serper', ''); // cancelled: don't ask again
   }
+};
+
+// Context compression: older turns are summarised by the loaded model into conv.summary (sent in the system prompt)
+// and skipped via conv.sumUpTo, so history is not silently cut by trimHistory. Auto when over budget, or from the ⚡ menu.
+const KEEP_LAST = 3; // newest messages stay verbatim
+async function compressChat(conv, force) {
+  const from = conv.sumUpTo || 0, upto = conv.messages.length - KEEP_LAST;
+  const old = conv.messages.slice(from, upto);
+  if (old.length < 2 || !engine) return false;
+  if (!force && old.reduce((n, m) => n + m.content.length, 0) < 4000) return false;
+  const text = old.map(m => `${m.role === 'user' ? 'Utente' : 'Neo'}: ${(m.shown ?? m.content).slice(0, 1200)}`).join('\n');
+  const prev = conv.summary ? `Riassunto precedente:\n${conv.summary}\n\n` : '';
+  const r = await engine.chat.completions.create({
+    stream: true, temperature: 0.2, max_tokens: 300,
+    messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content:
+      `Aggiorna il riassunto della conversazione in al massimo 8 punti elenco brevi. Tieni fatti, nomi, numeri, decisioni e richieste ancora aperte; scarta i convenevoli.\n\n${prev}Nuovi messaggi:\n${text}` }],
+  });
+  let out = '';
+  for await (const c of r) out += c.choices[0]?.delta?.content || '';
+  out = stripThink(out).trim();
+  if (!out) return false;
+  conv.summary = out; conv.sumUpTo = upto;
+  saveConvs();
+  return true;
+}
+window.compressNow = async function() {
+  const c = getActiveConv();
+  if (!engine || !c) return toast('Carica un modello e apri una chat.');
+  if (isGenerating) return toast('Attendi la fine della risposta.');
+  $cmdPopover.classList.remove('open');
+  isGenerating = true;
+  try { toast(await compressChat(c, true) ? 'Chat compressa: i messaggi vecchi sono ora un riassunto.' : 'Niente da comprimere.'); }
+  catch (e) { toast('Compressione fallita: ' + (e?.message || e)); }
+  finally { isGenerating = false; }
 };
 
 // Keep last messages within a char budget (~1.5k tokens); always keep the newest.
@@ -1030,8 +1080,9 @@ async function generate(conv, op = null) {
     // Build messages for API (strip opLabel)
     const ag = getAgent(conv.agentId);
     const act = skills.filter(k => k.on).map(k => `## Skill: ${k.name}\n${k.prompt}`);
-    const sys = stateless ? SYSTEM : [ag.prompt.trim(), ...act].filter(Boolean).join('\n\n');
-    const hist = stateless ? conv.messages.slice(-1) : trimHistory(conv.messages);
+    if (!stateless) try { await compressChat(conv, false); } catch (e) { console.warn('compress:', e); }
+    const sys = stateless ? SYSTEM : [ag.prompt.trim(), ...act, conv.summary && `## Riassunto della conversazione finora\n${conv.summary}`].filter(Boolean).join('\n\n');
+    const hist = stateless ? conv.messages.slice(-1) : trimHistory(conv.messages.slice(conv.sumUpTo || 0));
     const apiMsgs = [
       ...(sys ? [{ role: 'system', content: sys }] : []),
       ...hist.map(m => ({ role: m.role, content: isVlm() && m.imgs?.length
@@ -1196,6 +1247,7 @@ function renderCmds() {
     `<button class="cmd-item" onclick="runOp('${k}')"><span class="cmd-icon">${o[3]}</span><div><div class="cmd-label">${o[0]}</div><div class="cmd-desc">${o[4]}</div></div></button>`).join('')
     + '<div class="cmd-popover-title">Skill</div>' + skills.map(k =>
     `<div style="display:flex"><button class="cmd-item" style="flex:1" onclick="toggleSkill('${k.name}')"><span class="cmd-icon">${k.on ? '✓' : '○'}</span><div><div class="cmd-label">/${escHtml(k.name)}</div><div class="cmd-desc">${escHtml((k.description || '').slice(0, 80))}</div></div></button><button class="cmd-item" style="flex:0" title="Rimuovi" onclick="delSkill('${k.name}')">✕</button></div>`).join('')
+    + '<button class="cmd-item" onclick="compressNow()"><span class="cmd-icon">⇩</span><div><div class="cmd-label">Comprimi chat</div><div class="cmd-desc">Riassumi i messaggi vecchi per liberare contesto</div></div></button>'
     + '<button class="cmd-item" onclick="installSkill()"><span class="cmd-icon">⬇</span><div><div class="cmd-label">Installa skill…</div><div class="cmd-desc">Da GitHub o Vercel (SKILL.md)</div></div></button>';
 }
 renderCmds();
