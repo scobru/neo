@@ -430,7 +430,7 @@ let customModels = (() => {
 let remoteModels = (() => { try { return JSON.parse(localStorage.getItem('neo-remote')) || []; } catch { return []; } })();
 const saveRemote = () => localStorage.setItem('neo-remote', JSON.stringify(remoteModels));
 window.addRemote = function() {
-  const remote = { url: $g('rm-url').value.trim(), model: $g('rm-model').value.trim(), key: $g('rm-key').value.trim() };
+  const remote = { url: $g('rm-url').value.trim(), model: $g('rm-model').value.trim(), key: $g('rm-key').value.trim(), vision: $g('rm-vision').checked };
   if (!/^https?:\/\//.test(remote.url) || !remote.model) return toast('Servono URL (http/https) e modello.');
   const model_id = $g('rm-name').value.trim() || `${remote.model} @ ${new URL(remote.url).host}`;
   remoteModels = [...remoteModels.filter(m => m.model_id !== model_id), { model_id, remote }];
@@ -543,7 +543,7 @@ async function purgeLocal(m) { // delete the copied files of a local model
 }
 
 const curRec = () => allModels().find(m => m.model_id === currentModelId);
-const isVlm = () => curRec()?.model_type === webllm.ModelType.VLM;
+const isVlm = () => curRec()?.model_type === webllm.ModelType.VLM || !!remoteModels.find(m => m.model_id === currentModelId)?.remote.vision;
 
 // navigator.gpu can exist while requestAdapter() still returns null (hardware acceleration off, blocklisted driver, VM…)
 // Hybrid laptops: the preferred dGPU may be blocklisted while the iGPU works (e.g. MX250 D3D11 blocked, Iris D3D12 ok),
@@ -627,7 +627,7 @@ async function initModelPicker() {
     const remote = !!m.remote;
     const prec = remote ? '' : m.model_id.includes('q4f16') ? 'f16' : 'f32';
     const custom = remote || customModels.includes(m);
-    const vram = [remote && '☁ remoto', !remote && custom && (m.model.startsWith(LOCAL_BASE) ? '★ locale' : '★ personalizzato'), m.model_type === webllm.ModelType.VLM && 'vision', m.vram_required_MB && `~${m.vram_required_MB} MB`].filter(Boolean).join(' · ');
+    const vram = [remote && '☁ remoto', remote && m.remote.vision && 'vision', !remote && custom && (m.model.startsWith(LOCAL_BASE) ? '★ locale' : '★ personalizzato'), m.model_type === webllm.ModelType.VLM && 'vision', m.vram_required_MB && `~${m.vram_required_MB} MB`].filter(Boolean).join(' · ');
 
     const btn = document.createElement('button');
     btn.className = 'model-option';

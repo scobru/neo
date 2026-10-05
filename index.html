@@ -107,6 +107,7 @@
   <input id="rm-model" placeholder="llama3.2:3b">
   <label for="rm-key">API key (opzionale)</label>
   <input id="rm-key" type="password" autocomplete="off">
+  <label><input type="checkbox" id="rm-vision" style="width:auto"> modello con vision (accetta immagini, es. llava, llama3.2-vision, qwen2.5vl, gemma3)</label>
   <p style="font-size:12px;color:var(--ash)">La chiave resta nel browser. I messaggi vengono inviati al server indicato. Il server deve consentire CORS (Ollama: <code>OLLAMA_ORIGINS=*</code>).</p>
   <div class="ag-actions">
     <button class="primary" onclick="addRemote()">Aggiungi</button>
