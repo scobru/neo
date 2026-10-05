@@ -325,6 +325,45 @@ window.toggleGist = function() {
   document.getElementById('gist-toggle').classList.toggle('on', gistOn());
 };
 document.getElementById('gist-toggle').classList.toggle('on', gistOn());
+// ── Dictation (Desert Ant "Voz", on device, no upload). The ~350 MB model is downloaded on first use.
+// onnxruntime-web is loaded from jsDelivr as a plain ESM bundle and handed to Voz via `ort`.
+const ORT = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/';
+let vozP, rec = null;
+const loadVoz = () => vozP ??= (async () => {
+  const [{ Voz }, ort] = await Promise.all([import('https://esm.sh/@desert-ant-labs/voz@3.5.0'), import(ORT + 'ort.webgpu.bundle.min.mjs')]);
+  return Voz.load({ ort, wasmDir: ORT, onProgress: p => { $('mic-btn').title = `Scarico il modello vocale… ${Math.round(p * 100)}%`; } });
+})().catch(e => { vozP = null; throw e; });
+
+window.toggleMic = async function() {
+  const btn = $('mic-btn');
+  if (rec) return rec.stop();
+  if (!vozP) {
+    const gb = navigator.deviceMemory; // Chromium only, rounded and capped at 8
+    const low = gb && gb <= 4 ? `\n\n⚠ Il browser dichiara solo ${gb} GB di RAM: sconsigliato su questo dispositivo.` : '';
+    if (!await ask('Dettatura locale: scarica il modello vocale (~350 MB, una volta sola) e occupa circa 1,2 GB di RAM finché non ricarichi la pagina (di più se hai anche un modello locale caricato; con un modello remoto no). Attivala solo se il tuo dispositivo può permetterselo. L\'audio non lascia il dispositivo.' + low + '\n\nContinuare?', { ok: 'Scarica' })) return;
+  }
+  loadVoz().catch(() => {}); // download while you speak; the error is reported after the recording
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({ audio: true }); }
+  catch (e) { return toast('Microfono non disponibile: ' + (e?.message || e)); }
+  const chunks = [];
+  rec = new MediaRecorder(stream);
+  rec.ondataavailable = e => chunks.push(e.data);
+  rec.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop());
+    const type = rec.mimeType; rec = null;
+    btn.classList.remove('on'); btn.textContent = '…';
+    try {
+      const { text } = await (await loadVoz()).transcribe(new Blob(chunks, { type }));
+      if (text.trim()) { $chatInput.value += ($chatInput.value && ' ') + text.trim(); $chatInput.dispatchEvent(new Event('input')); }
+      else toast('Non ho sentito nulla.');
+    } catch (e) { toast('Dettatura fallita: ' + (e?.message || e)); }
+    btn.textContent = '🎤';
+  };
+  rec.start();
+  btn.classList.add('on');
+};
+
 async function tagConv(conv, text) {
   if (!gistOn() || conv.topic !== undefined) return;
   conv.topic = null; // one attempt per chat
